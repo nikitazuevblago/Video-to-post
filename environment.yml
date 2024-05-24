@@ -1,0 +1,10 @@
+# name: VideoToPost
+# channels:
+#   - pytorch
+#   - conda-forge
+#   - defaults
+# dependencies:
+#   - pytube=15.0.0
+# prefix: c:\Users\newzn\PycharmProjects\VideoToPost\.conda
+
+# will be defined in the future!
