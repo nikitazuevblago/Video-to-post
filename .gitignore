@@ -154,3 +154,7 @@ cython_debug/
 
 .idea/
 secret_key.py
+images/
+posts/
+yt_audio/
+test.ipynb
