@@ -1,4 +1,4 @@
-import os
+import io
 from pytube import YouTube
 from lxml import etree
 from pathlib import Path
@@ -8,6 +8,7 @@ import json
 import requests
 from PIL import Image
 from io import BytesIO
+from aiogram.types import FSInputFile
 import pickle
 import warnings
 warnings.filterwarnings('ignore')
@@ -55,7 +56,7 @@ def get_post_txt(yt, post_name, audio_dir_path:str='yt_audio/'): # Get subtitles
         # Parse the XML
         root = etree.fromstring(xml_captions.encode('utf-8'))
         text_blocks = []
-        for i, child in enumerate(root.findall('.//body/p')):
+        for child in root.findall('.//body/p'):
             text_block = ''.join(child.itertext()).strip().replace('\n', ' ')
             cleaned_text_block = text_block.replace('[Music]','').strip()
             if cleaned_text_block!='':
@@ -114,7 +115,7 @@ def get_post_txt(yt, post_name, audio_dir_path:str='yt_audio/'): # Get subtitles
     return summary
 
 
-def get_post_img(yt, post_name, thumbnail=True, img_path:str='images'):
+def get_post_img(yt, post_name, thumbnail=True, img_dir:str='images'):
     # Get the video's thumbnail
     if thumbnail:
         thumbnail_url = yt.thumbnail_url
@@ -124,13 +125,26 @@ def get_post_img(yt, post_name, thumbnail=True, img_path:str='images'):
 
         # Save image
         image = Image.open(BytesIO(response.content))
+
+        # Resize the image
+        new_size = (160,90)
+        resized_image = image.resize(new_size, Image.LANCZOS)
+
+        # Convert image to bytes 
+        # Save the image to a BytesIO object
+        image_bytes = io.BytesIO()
+        resized_image.save(image_bytes, format='JPEG')  # Ensure the format matches your image type
+        image_bytes.seek(0)  # Reset the stream position to the beginning
+        # Convert BytesIO to InputFile
+        resized_image = FSInputFile(image_bytes, filename='image.png')
+        return resized_image
+
+        # # Save the image to the specified path
+        # img_dir = Path(img_dir)
+        # img_dir.mkdir(parents=True, exist_ok=True)
+        # img_path = img_dir / f'{post_name}.jpg'
+        # resized_image.save(img_path)
         
-        # Save the image to the specified path
-        img_path = Path(img_path)
-        img_path.mkdir(parents=True, exist_ok=True)
-        img_path = img_path / f'{post_name}.jpg'
-        image.save(img_path)
-        return image
     # Generate the video (Then maybe add option to get images from internet)
     else: 
         pass
@@ -144,20 +158,22 @@ def VideoToPost(link, img=False, post_dir='posts/'):
     post_txt = get_post_txt(yt, post_name)
     if img:
         post_img = get_post_img(yt, post_name)
-        overall_post = {'post_text':post_txt,'post_img':post_img}
+        overall_post = {'post_txt':post_txt,'post_img':post_img}
     else:
-        overall_post = {'post_text':post_txt}
+        overall_post = {'post_txt':post_txt}
     post_dir = Path(post_dir)
     post_dir.mkdir(parents=True, exist_ok=True)
     post_path = post_dir / f'{post_name}.pkl'
     with open(post_path,'wb') as post_file:
         pickle.dump(overall_post, post_file)
+    return post_name, overall_post
 
-link = 'https://youtu.be/jNQXAC9IVRw?si=gjx36t0J7pZtvDyd' # with subtitles
+#link = 'https://youtu.be/jNQXAC9IVRw?si=gjx36t0J7pZtvDyd' # with subtitles
 #link = 'https://youtu.be/GC80Dk7eg_A?si=n9pIQh0f_A-zVbA_' # with generative subtitles
 #link = 'https://youtu.be/ORMx45xqWkA?si=rhEfMiGPJeUpsHGA'# PyTorch in 100 seconds with subtitles
 #link = 'https://youtu.be/8PhdfcX9tG0?si=bi-8LixVwwNrpzAM' # "I tried 10 code editors"
 #link = 'https://youtu.be/Bp8LcHfFJbs?si=W-HpkIr4o_Bjm7Kd'
+link = 'https://www.youtube.com/watch?v=hlwcZpEx2IY'
 
 VideoToPost(link)
 
