@@ -55,9 +55,10 @@ def check_new_videos():
     new_video_urls = []
     for i, CHANNEL_ID  in enumerate(yt_channel_ids):
         LAST_VIDEO_ID = last_video_ids[i]
-        url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults=1'
+        url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
+
         response = requests.get(url).json()
-        try: # FIX THIS - Youtube api isn't consistent somehow
+        try: # Some creator's videos can't be accessed, create a logger which notifies about such youtube creators
             latest_video = response['items'][0]
             video_id = latest_video['id']['videoId']
 
@@ -76,7 +77,14 @@ def check_new_videos():
                 else:
                     new_video_urls.append(None)
         except:
+            # WARNING - MESSAGE ISN'T SENT ALTHOUGH PRINTS ARE PRINTED!!!
+            bad_creator = TRACKED_YT_CHANNELS[i]
+            print('sending message')
+            bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {bad_creator}')
+            print('message sent')
             new_video_urls.append(None)
+            break
+
         else:
             new_video_urls.append(None)
     return new_video_urls
