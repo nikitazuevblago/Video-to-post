@@ -6,6 +6,7 @@ import re
 from os import getenv
 
 from aiogram import Bot, Dispatcher, html
+from aiogram.types import BufferedInputFile
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
@@ -73,16 +74,18 @@ def check_new_videos():
 
 async def suggest_new_posts(bot):
     while True:
-        print('New check----------------------------')
-        new_video_urls = check_new_videos()
+        print('----------------------------New check cycle----------------------------')
+        #new_video_urls = check_new_videos()
+        new_video_urls = ['https://www.youtube.com/watch?v=rkZzg7Vowao']
         for video_url in new_video_urls:
             if video_url!=None:
                 post_name, post_dict = VideoToPost(video_url, img=True) # Somehow img can't be sent.. it says "aiogram.exceptions.TelegramNetworkError"
                 if 'post_img' in post_dict.keys():
+                    
                     # Send image with a caption
                     await bot.send_photo(
                             GROUP_CHAT_ID, 
-                            post_dict['post_img'], 
+                            BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
                             caption=post_dict['post_txt'])
                 else:
                     await bot.send_message(GROUP_CHAT_ID, post_dict['post_txt']) # + ' (youtube_video_link)'

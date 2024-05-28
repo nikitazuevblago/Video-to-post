@@ -125,25 +125,24 @@ def get_post_img(yt, post_name, thumbnail=True, img_dir:str='images'):
 
         # Save image
         image = Image.open(BytesIO(response.content))
+        image.save('ex.jpeg')
 
-        # Resize the image
-        new_size = (160,90)
-        resized_image = image.resize(new_size, Image.LANCZOS)
+        # Define the cropping box
+        # (left, upper, right, lower) - crop 10% from each side
+        width, height = image.size
+        left = 0
+        right = width
+        upper = height * 0.13
+        lower = height * 0.87
+        croped_img = image.crop((left, upper, right, lower))
 
-        # Convert image to bytes 
-        # Save the image to a BytesIO object
-        image_bytes = io.BytesIO()
-        resized_image.save(image_bytes, format='JPEG')  # Ensure the format matches your image type
-        image_bytes.seek(0)  # Reset the stream position to the beginning
-        # Convert BytesIO to InputFile
-        resized_image = FSInputFile(image_bytes, filename='image.png')
-        return resized_image
+        # Convert img to byte array
+        img_byte_arr = io.BytesIO()
+        croped_img.save(img_byte_arr, format='JPEG')
+        img_byte_arr = img_byte_arr.getvalue()
 
-        # # Save the image to the specified path
-        # img_dir = Path(img_dir)
-        # img_dir.mkdir(parents=True, exist_ok=True)
-        # img_path = img_dir / f'{post_name}.jpg'
-        # resized_image.save(img_path)
+        # return img_path
+        return img_byte_arr
         
     # Generate the video (Then maybe add option to get images from internet)
     else: 
