@@ -8,7 +8,6 @@ import json
 import requests
 from PIL import Image
 from io import BytesIO
-from aiogram.types import FSInputFile
 import pickle
 import warnings
 warnings.filterwarnings('ignore')
@@ -46,12 +45,12 @@ def get_post_txt(yt, post_name, audio_dir_path:str='yt_audio/'): # Get subtitles
         
         xml_captions = eng_captions.xml_captions
 
-        # Fn for extracting subtitles
-        def format_time(milliseconds):
-            seconds, milliseconds = divmod(milliseconds, 1000)
-            minutes, seconds = divmod(seconds, 60)
-            hours, minutes = divmod(minutes, 60)
-            return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
+        # # Fn for extracting subtitles
+        # def format_time(milliseconds):
+        #     seconds, milliseconds = divmod(milliseconds, 1000)
+        #     minutes, seconds = divmod(seconds, 60)
+        #     hours, minutes = divmod(minutes, 60)
+        #     return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
 
         # Parse the XML
         root = etree.fromstring(xml_captions.encode('utf-8'))
