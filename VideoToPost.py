@@ -8,7 +8,6 @@ import json
 import requests
 from PIL import Image
 from io import BytesIO
-import pickle
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -44,13 +43,6 @@ def get_post_txt(yt, post_name, audio_dir_path:str='yt_audio/'): # Get subtitles
             raise ValueError("Video doesn't have subtitles, need to create")
         
         xml_captions = eng_captions.xml_captions
-
-        # # Fn for extracting subtitles
-        # def format_time(milliseconds):
-        #     seconds, milliseconds = divmod(milliseconds, 1000)
-        #     minutes, seconds = divmod(seconds, 60)
-        #     hours, minutes = divmod(minutes, 60)
-        #     return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
 
         # Parse the XML
         root = etree.fromstring(xml_captions.encode('utf-8'))
@@ -124,7 +116,6 @@ def get_post_img(yt, post_name, thumbnail=True, img_dir:str='images'):
 
         # Save image
         image = Image.open(BytesIO(response.content))
-        image.save('ex.jpeg')
 
         # Define the cropping box
         # (left, upper, right, lower) - crop 10% from each side
@@ -159,11 +150,6 @@ def VideoToPost(link, img=False, post_dir='posts/'):
         overall_post = {'post_txt':post_txt,'post_img':post_img}
     else:
         overall_post = {'post_txt':post_txt}
-    post_dir = Path(post_dir)
-    post_dir.mkdir(parents=True, exist_ok=True)
-    post_path = post_dir / f'{post_name}.pkl'
-    with open(post_path,'wb') as post_file:
-        pickle.dump(overall_post, post_file)
     return post_name, overall_post
 
 #link = 'https://youtu.be/jNQXAC9IVRw?si=gjx36t0J7pZtvDyd' # with subtitles
