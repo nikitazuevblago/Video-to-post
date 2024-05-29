@@ -117,7 +117,7 @@ async def suggest_new_posts():
             TRACKED_YT_CHANNELS = [channel for channel in TRACKED_YT_CHANNELS if channel not in bad_creators]
             pd.DataFrame({'tracked_yt_channels':TRACKED_YT_CHANNELS}).to_excel('tracked_yt_channels.xlsx',index=False)
                         
-        await asyncio.sleep(36000)  # Check for new videos every 10 hours (36000 sec)
+        await asyncio.sleep(180)  # Check for new videos every 10 hours (36000 sec)
 
 
 async def process_callback(callback_query: CallbackQuery):
