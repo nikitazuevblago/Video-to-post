@@ -56,7 +56,7 @@ async def check_new_videos():
         url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
 
         response = requests.get(url).json()
-        try: # Some creator's videos can't be accessed, create a logger which notifies about such youtube creators
+        try: # Some creator's videos can't be accessed, create a logger which notifies about such youtube creator
             latest_video = response['items'][0]
             video_id = latest_video['id']['videoId']
 
@@ -69,11 +69,13 @@ async def check_new_videos():
                 # Convert it to seconds
                 video_duration = parse_duration(video_duration)
                 # Check if it's a shorts or regular youtube video
-                if video_duration>60:
+                if video_duration>60 and video_duration<1200:
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_video_urls.append(new_video_url)
+                elif video_duration<60:
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was SHORTS(too short)')
                 else:
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was SHORTS')
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
         except:
             await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author}')
             bad_creators.append(yt_author)
@@ -87,7 +89,11 @@ async def suggest_new_posts():
         new_video_urls, bad_creators = await check_new_videos()
         if len(new_video_urls)>0:
             for video_url in new_video_urls:
-                post_name, post_dict = VideoToPost(video_url, img=True) 
+                try:
+                    post_name, post_dict = VideoToPost(video_url, img=True) 
+                except:
+                    print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
+                    continue
 
                 # Create inline keyboard with approve and disapprove buttons
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -116,7 +122,7 @@ async def suggest_new_posts():
 
 async def process_callback(callback_query: CallbackQuery):
     # Acknowledge the callback query to stop the "loading" state
-    await callback_query.answer()
+    await callback_query.answer(cache_time=12)
 
     # Edit the original message to remove the inline keyboard
     await callback_query.message.edit_reply_markup(reply_markup=None)
