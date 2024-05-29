@@ -13,14 +13,10 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from pytube import Channel
 from VideoToPost import VideoToPost
-from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID, TRACKED_YT_CHANNELS
+import pandas as pd
+from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID
 
-
-# for channel in TRACKED_YT_CHANNELS:
-#     try:
-#         Channel(f'https://www.youtube.com/c/{channel}').channel_id
-#     except:
-#         print(channel)
+TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
 yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
                   for channel in TRACKED_YT_CHANNELS]
 last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
@@ -50,10 +46,12 @@ def parse_duration(duration):
     return total_seconds
 
 
-def check_new_videos():
+async def check_new_videos():
     global last_video_ids
     new_video_urls = []
+    bad_creators = []
     for i, CHANNEL_ID  in enumerate(yt_channel_ids):
+        yt_author = TRACKED_YT_CHANNELS[i]
         LAST_VIDEO_ID = last_video_ids[i]
         url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
 
@@ -75,37 +73,28 @@ def check_new_videos():
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_video_urls.append(new_video_url)
                 else:
-                    new_video_urls.append(None)
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was SHORTS')
         except:
-            # WARNING - MESSAGE ISN'T SENT ALTHOUGH PRINTS ARE PRINTED!!!
-            bad_creator = TRACKED_YT_CHANNELS[i]
-            print('sending message')
-            bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {bad_creator}')
-            print('message sent')
-            new_video_urls.append(None)
-            break
-
-        else:
-            new_video_urls.append(None)
-    return new_video_urls
+            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author}')
+            bad_creators.append(yt_author)
+            
+    return new_video_urls, bad_creators
 
 
 async def suggest_new_posts():
     while True:
-        print('----------------------------New check cycle----------------------------')
-        new_video_urls = check_new_videos()
-        for video_url in new_video_urls:
-            if video_url!=None:
+        print(f"\n{'-'*15}New check cycle{'-'*15}")
+        new_video_urls, bad_creators = await check_new_videos()
+        if len(new_video_urls)>0:
+            for video_url in new_video_urls:
                 post_name, post_dict = VideoToPost(video_url, img=True) 
 
                 # Create inline keyboard with approve and disapprove buttons
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text='Approve', callback_data='approve')],
-                    [InlineKeyboardButton(text='Disapprove', callback_data='disapprove')]
-                ])
+                    [InlineKeyboardButton(text='Disapprove', callback_data='disapprove')]])
 
                 if 'post_img' in post_dict.keys():
-                    
                     # Send image with a caption
                     await bot.send_photo(
                             ADMIN_GROUP_CHAT_ID, 
@@ -113,6 +102,14 @@ async def suggest_new_posts():
                             caption=post_dict['post_txt'], reply_markup=keyboard)
                 else:
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, post_dict['post_txt'], reply_markup=keyboard) # + ' (youtube_video_link)'
+
+                await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
+
+        if len(bad_creators)>0:
+            global TRACKED_YT_CHANNELS
+            print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
+            TRACKED_YT_CHANNELS = [channel for channel in TRACKED_YT_CHANNELS if channel not in bad_creators]
+            pd.DataFrame({'tracked_yt_channels':TRACKED_YT_CHANNELS}).to_excel('tracked_yt_channels.xlsx',index=False)
                         
         await asyncio.sleep(36000)  # Check for new videos every 10 hours (36000 sec)
 

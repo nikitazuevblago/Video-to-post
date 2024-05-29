@@ -99,7 +99,10 @@ def get_post_txt(yt, post_name, audio_dir_path:str='yt_audio/'): # Get subtitles
         response = requests.post(url, json=payload, headers=headers)
 
         result = json.loads(response.text)
-        summary = result['openai']['generated_text']
+        try:
+            summary = result['openai']['generated_text']
+        except:
+            print(f'Response from EdenAI is not good: {result}')
         return summary
     
     summary = get_summary(transcription)
