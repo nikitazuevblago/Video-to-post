@@ -11,6 +11,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import Message
+import aiotube
 from pytube import Channel
 import psycopg2
 from VideoToPost import VideoToPost
@@ -57,27 +58,49 @@ def parse_duration(duration):
     return total_seconds
 
 
-async def check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids):
+async def check_new_videos(yt_channel_urls, TRACKED_YT_CHANNELS, last_video_ids, yt_api=False):
+    yt_channel_ids = [Channel(url).channel_id for url in yt_channel_urls]
     new_video_urls = []
     bad_creators = []
     for i, CHANNEL_ID  in enumerate(yt_channel_ids):
         yt_author = TRACKED_YT_CHANNELS[i]
         LAST_VIDEO_ID = last_video_ids[i]
-        url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
 
-        response = requests.get(url).json()
-        try: # Some creator's videos can't be accessed, create a logger which notifies about such youtube creator
-            latest_video = response['items'][0]
-            video_id = latest_video['id']['videoId']
+        if yt_api:
+            url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
+            response = requests.get(url).json()
+            try: # Some creator's videos can't be accessed, create a logger which notifies about such youtube creator
+                latest_video = response['items'][0]
+                video_id = latest_video['id']['videoId']
 
-            if video_id != LAST_VIDEO_ID:
-                last_video_ids[i] = video_id
-                video_details_url = f'https://www.googleapis.com/youtube/v3/videos?key={YT_API_KEY}&id={video_id}&part=contentDetails'
-                video_details_response = requests.get(video_details_url).json()
-                # Duration of the video in ISO 8601 format
-                video_duration = video_details_response['items'][0]['contentDetails']['duration']
-                # Convert it to seconds
-                video_duration = parse_duration(video_duration)
+                if video_id != LAST_VIDEO_ID:
+                    last_video_ids[i] = video_id
+                    video_details_url = f'https://www.googleapis.com/youtube/v3/videos?key={YT_API_KEY}&id={video_id}&part=contentDetails'
+                    video_details_response = requests.get(video_details_url).json()
+                    # Duration of the video in ISO 8601 format
+                    video_duration = video_details_response['items'][0]['contentDetails']['duration']
+                    # Convert it to seconds
+                    video_duration = parse_duration(video_duration)
+                    # Check if it's a shorts or regular youtube video
+                    if video_duration>60 and video_duration<1200:
+                        new_video_url = f"https://www.youtube.com/watch?v={video_id}"
+                        new_video_urls.append(new_video_url)
+                    elif video_duration<60:
+                        await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was SHORTS(too short)')
+                    else:
+                        await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
+            except:
+                await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author};\nRequests.get(url) response -> "{response}"')
+                bad_creators.append(yt_author)
+        
+        # Using aiotube library
+        else:
+            try:
+                channel_url = yt_channel_urls[i].replace('/c/','@')
+                at_index = channel_url.index('@')
+                channel_with_at =  channel_url[at_index:]# smth like @Lololoshka
+                video_id = aiotube.Channel(channel_with_at).last_uploaded()
+                video_duration = int(aiotube.Video(video_id).metadata['duration'])
                 # Check if it's a shorts or regular youtube video
                 if video_duration>60 and video_duration<1200:
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -86,28 +109,30 @@ async def check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids):
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was SHORTS(too short)')
                 else:
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
-        except:
-            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author};\nRequests.get(url) respone -> "{response}"')
-            bad_creators.append(yt_author)
+                    
+            except:
+                await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author}; Video_id - {video_id} (AIOTUBE)')
+                bad_creators.append(yt_author)
+            
+            
             
     return new_video_urls, bad_creators
 
 
-async def suggest_new_posts(DB_config:dict):
+async def suggest_new_posts(DB_config:dict, delete_bad_creators=False):
     while True:
         TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
-        yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
-                        for channel in TRACKED_YT_CHANNELS]
+        yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in TRACKED_YT_CHANNELS]
         last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
         print(f"\n{'-'*15}New check cycle{'-'*15}")
-        new_video_urls, bad_creators = await check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids)
+        new_video_urls, bad_creators = await check_new_videos(yt_channel_urls, TRACKED_YT_CHANNELS, last_video_ids)
         if len(new_video_urls)>0:
             for video_url in new_video_urls:
-                try:
-                    post_name, post_dict = VideoToPost(video_url, img=True) 
-                except:
-                    print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
-                    continue
+                #try:
+                post_name, post_dict = VideoToPost(video_url, img=True) 
+                # except:
+                #     print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
+                #     continue
 
                 # Create inline keyboard with approve and disapprove buttons
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -125,10 +150,11 @@ async def suggest_new_posts(DB_config:dict):
 
                 await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
 
-        if len(bad_creators)>0:
-            print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
-            TRACKED_YT_CHANNELS = [channel for channel in TRACKED_YT_CHANNELS if channel not in bad_creators]
-            pd.DataFrame({'tracked_yt_channels':TRACKED_YT_CHANNELS}).to_excel('tracked_yt_channels.xlsx',index=False)
+        if delete_bad_creators:
+            if len(bad_creators)>0:
+                print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
+                TRACKED_YT_CHANNELS = [channel for channel in TRACKED_YT_CHANNELS if channel not in bad_creators]
+                pd.DataFrame({'tracked_yt_channels':TRACKED_YT_CHANNELS}).to_excel('tracked_yt_channels.xlsx',index=False)
                         
         await asyncio.sleep(10)  # Check for new videos every 5 hours (18000 sec)
 
@@ -164,26 +190,26 @@ async def process_callback(callback_query: CallbackQuery):
 
 
 # FNs interacting with DB PostgreSQL
-def insert_yt_creators(DB_config:dict, new_channels):
+def insert_yt_creators(DB_config:dict, new_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
         for channel in new_channels:
             try:
-                cur.execute(f"""INSERT INTO TRACKED_YT_CHANNELS (channel) VALUES ('{channel}');""")
+                cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
                 conn.commit()
             except psycopg2.errors.UniqueViolation:
                 conn.rollback()
-                # REPLACE BELOW WITH await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "TRACKED_YT_CHANNELS" does not exist, creating one...')
+                # REPLACE BELOW WITH await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "{table_name}" does not exist, creating one...')
                 print(f'Channel {channel} already exists in DB!')
             except psycopg2.errors.UndefinedTable:
                 conn.rollback()
-                # REPLACE BELOW WITH  await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "TRACKED_YT_CHANNELS" does not exist, creating one...')
-                print('Table "TRACKED_YT_CHANNELS" does not exist, creating one...') 
-                cur.execute("""CREATE TABLE IF NOT EXISTS TRACKED_YT_CHANNELS (
+                # REPLACE BELOW WITH  await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "{table_name}" does not exist, creating one...')
+                print(f'Table "{table_name}" does not exist, creating one...') 
+                cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
                                 channel VARCHAR(255) PRIMARY KEY);""")
-                cur.execute(f"""INSERT INTO TRACKED_YT_CHANNELS (channel) VALUES ('{channel}');""")
+                cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
                 conn.commit()
 
     except psycopg2.errors.OperationalError:

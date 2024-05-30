@@ -1,8 +1,6 @@
 import io
 from pytube import YouTube
 from lxml import etree
-from pathlib import Path
-import ffmpeg
 from os import getenv
 try:    
     from secret_key import api_key_edenai
