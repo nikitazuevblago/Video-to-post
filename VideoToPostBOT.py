@@ -49,12 +49,7 @@ def parse_duration(duration):
     return total_seconds
 
 
-async def check_new_videos():
-    TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
-    yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
-                    for channel in TRACKED_YT_CHANNELS]
-    last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
-
+async def check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids):
     new_video_urls = []
     bad_creators = []
     for i, CHANNEL_ID  in enumerate(yt_channel_ids):
@@ -92,8 +87,12 @@ async def check_new_videos():
 
 async def suggest_new_posts():
     while True:
+        TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
+        yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
+                        for channel in TRACKED_YT_CHANNELS]
+        last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
         print(f"\n{'-'*15}New check cycle{'-'*15}")
-        new_video_urls, bad_creators = await check_new_videos()
+        new_video_urls, bad_creators = await check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids)
         if len(new_video_urls)>0:
             for video_url in new_video_urls:
                 try:
@@ -119,7 +118,6 @@ async def suggest_new_posts():
                 await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
 
         if len(bad_creators)>0:
-            global TRACKED_YT_CHANNELS
             print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
             TRACKED_YT_CHANNELS = [channel for channel in TRACKED_YT_CHANNELS if channel not in bad_creators]
             pd.DataFrame({'tracked_yt_channels':TRACKED_YT_CHANNELS}).to_excel('tracked_yt_channels.xlsx',index=False)
