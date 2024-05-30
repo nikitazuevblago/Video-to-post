@@ -3,7 +3,12 @@ from pytube import YouTube
 from lxml import etree
 from pathlib import Path
 import ffmpeg
-from secret_key import api_key_edenai
+from os import getenv
+try:    
+    from secret_key import api_key_edenai
+except:
+    api_key_edenai = getenv('api_key_edenai')
+
 import json
 import requests
 from PIL import Image
