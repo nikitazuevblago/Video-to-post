@@ -23,11 +23,6 @@ except:
     ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
     api_key_edenai = getenv('api_key_edenai')
 
-TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
-yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
-                  for channel in TRACKED_YT_CHANNELS]
-last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
-
 
 # All handlers should be attached to the Router (or Dispatcher)
 dp = Dispatcher()
@@ -55,7 +50,11 @@ def parse_duration(duration):
 
 
 async def check_new_videos():
-    global last_video_ids
+    TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
+    yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
+                    for channel in TRACKED_YT_CHANNELS]
+    last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
+
     new_video_urls = []
     bad_creators = []
     for i, CHANNEL_ID  in enumerate(yt_channel_ids):
@@ -85,7 +84,7 @@ async def check_new_videos():
                 else:
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
         except:
-            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author} {response} "{api_key_edenai}"')
+            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author} {response}')
             bad_creators.append(yt_author)
             
     return new_video_urls, bad_creators
@@ -97,11 +96,11 @@ async def suggest_new_posts():
         new_video_urls, bad_creators = await check_new_videos()
         if len(new_video_urls)>0:
             for video_url in new_video_urls:
-                #try:
-                post_name, post_dict = VideoToPost(video_url, img=True) 
-                # except:
-                #     print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
-                #     continue
+                try:
+                    post_name, post_dict = VideoToPost(video_url, img=True) 
+                except:
+                    print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
+                    continue
 
                 # Create inline keyboard with approve and disapprove buttons
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
