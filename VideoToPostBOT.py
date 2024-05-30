@@ -21,6 +21,7 @@ except:
     YT_API_KEY = getenv('YT_API_KEY')
     TG_CHANNEL_ID = getenv('TG_CHANNEL_ID')
     ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
+    api_key_edenai = getenv('api_key_edenai')
 
 TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
 yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
@@ -84,7 +85,7 @@ async def check_new_videos():
                 else:
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
         except:
-            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author} {response}')
+            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author} {response} "{api_key_edenai}"')
             bad_creators.append(yt_author)
             
     return new_video_urls, bad_creators
