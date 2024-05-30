@@ -14,7 +14,13 @@ from aiogram.types import Message
 from pytube import Channel
 from VideoToPost import VideoToPost
 import pandas as pd
-from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID
+try:
+    from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID
+except:
+    BOT_TOKEN = getenv('BOT_TOKEN')
+    YT_API_KEY = getenv('YT_API_KEY')
+    TG_CHANNEL_ID = getenv('TG_CHANNEL_ID')
+    ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
 
 TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
 yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
@@ -26,6 +32,7 @@ last_video_ids = [None for _ in range(len(TRACKED_YT_CHANNELS))]
 dp = Dispatcher()
 router = Router(name=__name__)
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
 
 
 @dp.message(CommandStart())

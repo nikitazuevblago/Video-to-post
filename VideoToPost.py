@@ -107,7 +107,7 @@ def get_post_txt(yt): # Get subtitles or generate from video's audio
     return summary
 
 
-def get_post_img(yt, post_name, thumbnail=True, img_dir:str='images'):
+def get_post_img(yt, thumbnail=True):
     # Get the video's thumbnail
     if thumbnail:
         thumbnail_url = yt.thumbnail_url
@@ -145,7 +145,7 @@ def VideoToPost(link, img=False):
     yt = YouTube(link)
     yt.bypass_age_gate()
     post_name = yt.title + ' (' + yt.author + ')'
-    post_txt = get_post_txt(yt, post_name)
+    post_txt = get_post_txt(yt)
     if img:
         post_img = get_post_img(yt, post_name)
         overall_post = {'post_txt':post_txt,'post_img':post_img}
@@ -159,7 +159,8 @@ def VideoToPost(link, img=False):
 #link = 'https://youtu.be/8PhdfcX9tG0?si=bi-8LixVwwNrpzAM' # "I tried 10 code editors"
 #link = 'https://youtu.be/Bp8LcHfFJbs?si=W-HpkIr4o_Bjm7Kd'
 #link = 'https://www.youtube.com/watch?v=hlwcZpEx2IY'
-link = 'https://www.youtube.com/watch?v=NU8XGQphI3k'
+#link = 'https://www.youtube.com/watch?v=NU8XGQphI3k'
+link = 'https://www.youtube.com/watch?v=mY7iweEA_HM'
 
-#VideoToPost(link)
+VideoToPost(link)
 
