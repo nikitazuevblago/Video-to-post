@@ -79,7 +79,7 @@ async def check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids):
                 else:
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
         except:
-            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author} {response}')
+            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author};\nRequests.get(url) respone -> "{response}"')
             bad_creators.append(yt_author)
             
     return new_video_urls, bad_creators
@@ -122,7 +122,7 @@ async def suggest_new_posts():
             TRACKED_YT_CHANNELS = [channel for channel in TRACKED_YT_CHANNELS if channel not in bad_creators]
             pd.DataFrame({'tracked_yt_channels':TRACKED_YT_CHANNELS}).to_excel('tracked_yt_channels.xlsx',index=False)
                         
-        await asyncio.sleep(180)  # Check for new videos every 10 hours (36000 sec)
+        await asyncio.sleep(10)  # Check for new videos every 5 hours (18000 sec)
 
 
 async def process_callback(callback_query: CallbackQuery):
