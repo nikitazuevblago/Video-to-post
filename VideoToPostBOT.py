@@ -84,7 +84,7 @@ async def check_new_videos():
                 else:
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'The last video of {yt_author} was PODCAST(too long)')
         except:
-            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author}')
+            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Trouble with the creator {yt_author} {response}')
             bad_creators.append(yt_author)
             
     return new_video_urls, bad_creators
