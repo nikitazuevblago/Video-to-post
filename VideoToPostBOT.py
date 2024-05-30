@@ -12,16 +12,24 @@ from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from pytube import Channel
+import psycopg2
 from VideoToPost import VideoToPost
 import pandas as pd
 try:
-    from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID
+    from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID, HOST, DBNAME, USER, PASSWORD, PORT
 except:
     BOT_TOKEN = getenv('BOT_TOKEN')
     YT_API_KEY = getenv('YT_API_KEY')
     TG_CHANNEL_ID = getenv('TG_CHANNEL_ID')
     ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
     api_key_edenai = getenv('api_key_edenai')
+
+    # DB env vars
+    HOST = getenv('HOST')
+    DBNAME = getenv('DBNAME')
+    USER = getenv('USER')
+    PASSWORD = getenv('PASSWORD')
+    PORT = int(getenv('PORT'))
 
 
 # All handlers should be attached to the Router (or Dispatcher)
@@ -85,7 +93,7 @@ async def check_new_videos(yt_channel_ids, TRACKED_YT_CHANNELS, last_video_ids):
     return new_video_urls, bad_creators
 
 
-async def suggest_new_posts():
+async def suggest_new_posts(DB_config:dict):
     while True:
         TRACKED_YT_CHANNELS = pd.read_excel('tracked_yt_channels.xlsx')['tracked_yt_channels']
         yt_channel_ids = [Channel(f'https://www.youtube.com/c/{channel}').channel_id 
@@ -155,12 +163,114 @@ async def process_callback(callback_query: CallbackQuery):
     await callback_query.message.reply(response_text)
 
 
+# FNs interacting with DB PostgreSQL
+def insert_yt_creators(DB_config:dict, new_channels):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        for channel in new_channels:
+            try:
+                cur.execute(f"""INSERT INTO TRACKED_YT_CHANNELS (channel) VALUES ('{channel}');""")
+                conn.commit()
+            except psycopg2.errors.UniqueViolation:
+                conn.rollback()
+                # REPLACE BELOW WITH await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "TRACKED_YT_CHANNELS" does not exist, creating one...')
+                print(f'Channel {channel} already exists in DB!')
+            except psycopg2.errors.UndefinedTable:
+                conn.rollback()
+                # REPLACE BELOW WITH  await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "TRACKED_YT_CHANNELS" does not exist, creating one...')
+                print('Table "TRACKED_YT_CHANNELS" does not exist, creating one...') 
+                cur.execute("""CREATE TABLE IF NOT EXISTS TRACKED_YT_CHANNELS (
+                                channel VARCHAR(255) PRIMARY KEY);""")
+                cur.execute(f"""INSERT INTO TRACKED_YT_CHANNELS (channel) VALUES ('{channel}');""")
+                conn.commit()
+
+    except psycopg2.errors.OperationalError:
+        raise('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
+    finally:
+        cur.close()
+        conn.close()
+
+def remove_yt_creators(DB_config:dict, bad_channels, table_name='TRACKED_YT_CHANNELS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        for channel in bad_channels:
+            cur.execute(f"""DELETE FROM {table_name} WHERE channel = '{channel}';""")
+            conn.commit()
+
+    except psycopg2.errors.OperationalError:
+        raise('ERROR: cannot connect to PostgreSQL while remove_yt_creators()')
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_used_video_urls(DB_config:dict, table_name='USED_VIDEO_URLS') -> set:
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        try:
+            cur.execute(f"""SELECT video_url FROM {table_name};""")
+            video_urls_postgres = cur.fetchall()
+            used_video_urls = {url_tuple[0] for url_tuple in video_urls_postgres}
+            return used_video_urls
+        except psycopg2.errors.UndefinedTable:
+            conn.rollback()
+            # REPLACE BELOW WITH  await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "{table_name}" does not exist, creating one...')
+            print(f'Table "{table_name}" does not exist, creating one...') 
+            cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
+                            video_url VARCHAR(255) PRIMARY KEY);""")
+            return {}
+            
+    except psycopg2.errors.OperationalError:
+        raise('ERROR: cannot connect to PostgreSQL while get_used_video_urls()')
+    finally:
+        cur.close()
+        conn.close()
+
+
+def insert_new_video_urls(DB_config:dict, new_video_urls, table_name='USED_VIDEO_URLS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        for video_url in new_video_urls:
+            try:
+                cur.execute(f"""INSERT INTO {table_name} (video_url) VALUES ('{video_url}');""")
+                conn.commit()
+            except psycopg2.errors.UniqueViolation:
+                conn.rollback()
+                # REPLACE BELOW WITH await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "{table_name}" does not exist, creating one...')
+                print(f'Video_url {video_url} already exists in DB!')
+            except psycopg2.errors.UndefinedTable:
+                conn.rollback()
+                # REPLACE BELOW WITH  await bot.send_message(ADMIN_GROUP_CHAT_ID, f'Table "{table_name}" does not exist, creating one...')
+                print(f'Table "{table_name}" does not exist, creating one...') 
+                cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
+                                video_url VARCHAR(255) PRIMARY KEY);""")
+                cur.execute(f"""INSERT INTO {table_name} (video_url) VALUES ('{video_url}');""")
+                conn.commit()
+
+    except psycopg2.errors.OperationalError:
+        raise('ERROR: cannot connect to PostgreSQL while insert_new_video_urls()')
+    finally:
+        cur.close()
+        conn.close()
+
+
+
+# Run the bot
 async def main() -> None:
     # Register handlers
     dp.callback_query.register(process_callback, lambda c: c.data in ['approve', 'disapprove'])
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
-    asyncio.create_task(suggest_new_posts())
+    DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
+    asyncio.create_task(suggest_new_posts(DB_config))
     await dp.start_polling(bot)
 
 
