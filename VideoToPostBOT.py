@@ -96,11 +96,11 @@ async def suggest_new_posts():
         new_video_urls, bad_creators = await check_new_videos()
         if len(new_video_urls)>0:
             for video_url in new_video_urls:
-                try:
-                    post_name, post_dict = VideoToPost(video_url, img=True) 
-                except:
-                    print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
-                    continue
+                #try:
+                post_name, post_dict = VideoToPost(video_url, img=True) 
+                # except:
+                #     print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
+                #     continue
 
                 # Create inline keyboard with approve and disapprove buttons
                 keyboard = InlineKeyboardMarkup(inline_keyboard=[
