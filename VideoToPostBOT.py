@@ -9,7 +9,7 @@ from aiogram import Bot, Dispatcher, Router
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
 import aiotube
 from pytube import Channel
@@ -179,7 +179,7 @@ def get_tracked_channels(DB_config:dict, table_name='TRACKED_YT_CHANNELS'):
         conn.close()
 
 
-#@dp.message(Command("hello"))
+#@dp.message(Command("new_channels"))
 def insert_yt_creators(DB_config:dict, new_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
@@ -299,7 +299,7 @@ def clear_up_db(DB_config:dict):
 async def suggest_new_posts(DB_config:dict, delete_bad_creators=True): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         # JUST TO CHECK 
-        await bot.send_message(ADMIN_GROUP_CHAT_ID, str(DB_config), reply_markup=keyboard) # + ' (youtube_video_link)'
+        await bot.send_message(ADMIN_GROUP_CHAT_ID, str(DB_config)) # + ' (youtube_video_link)'
         # JUST TO CHECK 
 
 
