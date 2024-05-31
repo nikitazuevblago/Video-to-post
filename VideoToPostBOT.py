@@ -6,7 +6,7 @@ import re
 from os import getenv
 
 from aiogram import Bot, Dispatcher, Router
-from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -16,7 +16,7 @@ from pytube import Channel
 import psycopg2
 from VideoToPost import VideoToPost
 try:
-    from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID, HOST, DBNAME, USER, PASSWORD, PORT, TEST_MODE
+    from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID, HOST, DBNAME, USER, PASSWORD, PORT, TEST_MODE, CREATOR_ID, OWNER_ID
 except:
     BOT_TOKEN = getenv('BOT_TOKEN')
     YT_API_KEY = getenv('YT_API_KEY')
@@ -31,6 +31,10 @@ except:
     PORT = int(getenv('PGPORT'))
 
     TEST_MODE = int(getenv('TEST_MODE'))
+
+    # Admins IDs
+    CREATOR_ID = int(getenv('CREATOR_ID'))
+    OWNER_ID = int(getenv('OWNER_ID'))
 
 DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
 
@@ -181,32 +185,43 @@ def get_tracked_channels(table_name='TRACKED_YT_CHANNELS'):
         conn.close()
 
 
-#@dp.message(Command("new_channels"))
-def insert_yt_creators(new_channels, table_name='TRACKED_YT_CHANNELS'):
-    try:
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-        for channel in new_channels:
-            try:
-                cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                conn.commit()
-            except psycopg2.errors.UniqueViolation:
-                conn.rollback()
-                bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channel {channel} already exists in DB!')
-            except psycopg2.errors.UndefinedTable:
-                conn.rollback()
-                bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one...')
-                cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                                channel VARCHAR(255) PRIMARY KEY);""")
-                cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                conn.commit()
+@dp.message(Command("new_channels"))
+async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS'):
+    if int(message.from_user.id) in [CREATOR_ID,OWNER_ID]:
+        try:
+            # Extract the channels from the message text
+            channels = message.text.split(' ', 1)[1]
+            # Remove any extra spaces and split the channel names by comma
+            new_channels = [channel.strip() for channel in channels.split(',')]
 
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
-    finally:
-        cur.close()
-        conn.close()
+            # Establish db connection
+            conn = psycopg2.connect(**DB_config)
+            cur = conn.cursor()
+            for channel in new_channels:
+                try:
+                    cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
+                    conn.commit()
+                except psycopg2.errors.UniqueViolation:
+                    conn.rollback()
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channel {channel} already exists in DB!')
+                except psycopg2.errors.UndefinedTable:
+                    conn.rollback()
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one...')
+                    cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
+                                    channel VARCHAR(255) PRIMARY KEY);""")
+                    cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
+                    conn.commit()
+            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+        except IndexError:
+            # If the command is used incorrectly, send an error message
+            await message.reply("Please use the correct format: /new_channels channel1,channel2")
+        except psycopg2.errors.OperationalError:
+            raise('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
+        finally:
+            cur.close()
+            conn.close()
+    else:
+        await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] You shall not pass stranger!')
 
 def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
@@ -300,11 +315,6 @@ def clear_up_db():
 # Main logic
 async def suggest_new_posts(delete_bad_creators=True): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
-        # JUST TO CHECK 
-        await bot.send_message(ADMIN_GROUP_CHAT_ID, str(DB_config)) # + ' (youtube_video_link)'
-        # JUST TO CHECK 
-
-
         tracked_yt_channels = get_tracked_channels()
         yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
         print(f"\n{'-'*15}New check cycle{'-'*15}")
@@ -342,9 +352,11 @@ async def suggest_new_posts(delete_bad_creators=True): # delete_bad_creators beh
             if len(bad_creators)>0:
                 print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
                 remove_yt_creators(bad_creators)
-                        
-        await asyncio.sleep(10)  # Check for new videos every 5 hours (18000 sec)
 
+        if TEST_MODE==1:                
+            await asyncio.sleep(10)  
+        else:
+            await asyncio.sleep(18000) # Check for new videos every 5 hours (18000 sec)
 
 # Run the bot
 async def run_bot() -> None:

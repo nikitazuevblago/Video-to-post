@@ -3,9 +3,24 @@ from pytube import YouTube
 from lxml import etree
 from os import getenv
 try:    
-    from secret_key import api_key_edenai
+    from secret_key import TEST_MODE
 except:
-    api_key_edenai = getenv('api_key_edenai')
+    TEST_MODE = int(getenv('TEST_MODE'))
+
+if TEST_MODE==1:
+    try:    
+        from secret_key import API_KEY_EDENAI_SANDBOX
+    except:
+        API_KEY_EDENAI_SANDBOX = int(getenv('API_KEY_EDENAI_SANDBOX'))
+    # Configuration for EdenAI
+    headers = {"Authorization": API_KEY_EDENAI_SANDBOX}
+else:
+    try:    
+        from secret_key import API_KEY_EDENAI
+    except:
+        API_KEY_EDENAI = int(getenv('API_KEY_EDENAI'))
+    # Configuration for EdenAI
+    headers = {"Authorization": API_KEY_EDENAI}
 
 import json
 import requests
@@ -13,10 +28,6 @@ from PIL import Image
 from io import BytesIO
 import warnings
 warnings.filterwarnings('ignore')
-
-
-# Configuration for EdenAI
-headers = {"Authorization": api_key_edenai}
 
 
 def speech_to_text(audio_bytes):
@@ -30,8 +41,6 @@ def speech_to_text(audio_bytes):
     response = requests.post(url, data=data, files=files, headers=headers)
     result = json.loads(response.text)['results']['openai']['text']
     return result
-
-
 
 
 # SubFunctions
