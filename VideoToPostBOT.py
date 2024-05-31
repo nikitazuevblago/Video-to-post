@@ -179,6 +179,7 @@ def get_tracked_channels(DB_config:dict, table_name='TRACKED_YT_CHANNELS'):
         conn.close()
 
 
+#@dp.message(Command("hello"))
 def insert_yt_creators(DB_config:dict, new_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
@@ -287,7 +288,7 @@ def clear_up_db(DB_config:dict):
                 conn.rollback()
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while insert_new_video_urls()')
+        raise('ERROR: cannot connect to PostgreSQL while clear_up_db()')
     
     finally:
         cur.close()
@@ -297,6 +298,11 @@ def clear_up_db(DB_config:dict):
 # Main logic
 async def suggest_new_posts(DB_config:dict, delete_bad_creators=True): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
+        # JUST TO CHECK 
+        await bot.send_message(ADMIN_GROUP_CHAT_ID, str(DB_config), reply_markup=keyboard) # + ' (youtube_video_link)'
+        # JUST TO CHECK 
+
+
         tracked_yt_channels = get_tracked_channels(DB_config)
         yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
         print(f"\n{'-'*15}New check cycle{'-'*15}")
