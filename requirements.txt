@@ -7,3 +7,4 @@ aiogram==3.6.0
 requests==2.32.2
 pillow==10.3.0
 psycopg2==2.9.9
+aiotube==1.7.2

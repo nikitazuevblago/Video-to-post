@@ -22,14 +22,13 @@ except:
     YT_API_KEY = getenv('YT_API_KEY')
     TG_CHANNEL_ID = getenv('TG_CHANNEL_ID')
     ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
-    api_key_edenai = getenv('api_key_edenai')
 
     # DB env vars
-    HOST = getenv('HOST')
-    DBNAME = getenv('DBNAME')
-    USER = getenv('USER')
-    PASSWORD = getenv('PASSWORD')
-    PORT = int(getenv('PORT'))
+    HOST = getenv('PGUSER')
+    DBNAME = getenv('POSTGRES_DB')
+    USER = getenv('PGUSER')
+    PASSWORD = getenv('POSTGRES_PASSWORD')
+    PORT = int(getenv('PGPORT'))
 
     TEST_MODE = int(getenv('TEST_MODE'))
 
