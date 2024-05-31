@@ -11,14 +11,14 @@ if TEST_MODE==1:
     try:    
         from secret_key import API_KEY_EDENAI_SANDBOX
     except:
-        API_KEY_EDENAI_SANDBOX = int(getenv('API_KEY_EDENAI_SANDBOX'))
+        API_KEY_EDENAI_SANDBOX = getenv('API_KEY_EDENAI_SANDBOX')
     # Configuration for EdenAI
     headers = {"Authorization": API_KEY_EDENAI_SANDBOX}
 else:
     try:    
         from secret_key import API_KEY_EDENAI
     except:
-        API_KEY_EDENAI = int(getenv('API_KEY_EDENAI'))
+        API_KEY_EDENAI = getenv('API_KEY_EDENAI')
     # Configuration for EdenAI
     headers = {"Authorization": API_KEY_EDENAI}
 
