@@ -204,6 +204,7 @@ async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS')
                 except psycopg2.errors.UniqueViolation:
                     conn.rollback()
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channel {channel} already exists in DB!')
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
                 except psycopg2.errors.UndefinedTable:
                     conn.rollback()
                     await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one...')
@@ -211,7 +212,7 @@ async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS')
                                     channel VARCHAR(255) PRIMARY KEY);""")
                     cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
                     conn.commit()
-            await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
         except IndexError:
             # If the command is used incorrectly, send an error message
             await message.reply("Please use the correct format: /new_channels channel1,channel2")
