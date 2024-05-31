@@ -24,13 +24,15 @@ except:
     ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
 
     # DB env vars
-    HOST = getenv('PGUSER')
+    HOST = getenv('PGHOST')
     DBNAME = getenv('POSTGRES_DB')
     USER = getenv('PGUSER')
     PASSWORD = getenv('POSTGRES_PASSWORD')
     PORT = int(getenv('PGPORT'))
 
     TEST_MODE = int(getenv('TEST_MODE'))
+
+DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
 
 
 # All handlers should be attached to the Router (or Dispatcher)
@@ -58,7 +60,7 @@ def parse_duration(duration):
     return total_seconds
 
 
-async def check_new_videos(DB_config, yt_channel_urls, tracked_yt_channels, yt_api=False):
+async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
     new_latest_videos = set() # creator:video_url
     bad_creators = set()
 
@@ -114,7 +116,7 @@ async def check_new_videos(DB_config, yt_channel_urls, tracked_yt_channels, yt_a
                 await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)')
                 bad_creators.add(yt_author)
 
-    used_video_urls = get_used_video_urls(DB_config)
+    used_video_urls = get_used_video_urls()
     new_latest_video_urls = new_latest_videos - used_video_urls
     return new_latest_video_urls, bad_creators
 
@@ -150,7 +152,7 @@ async def process_callback(callback_query: CallbackQuery):
 
 
 # FNs interacting with DB PostgreSQL
-def get_tracked_channels(DB_config:dict, table_name='TRACKED_YT_CHANNELS'):
+def get_tracked_channels(table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -180,7 +182,7 @@ def get_tracked_channels(DB_config:dict, table_name='TRACKED_YT_CHANNELS'):
 
 
 #@dp.message(Command("new_channels"))
-def insert_yt_creators(DB_config:dict, new_channels, table_name='TRACKED_YT_CHANNELS'):
+def insert_yt_creators(new_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -206,7 +208,7 @@ def insert_yt_creators(DB_config:dict, new_channels, table_name='TRACKED_YT_CHAN
         cur.close()
         conn.close()
 
-def remove_yt_creators(DB_config:dict, bad_channels, table_name='TRACKED_YT_CHANNELS'):
+def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -222,7 +224,7 @@ def remove_yt_creators(DB_config:dict, bad_channels, table_name='TRACKED_YT_CHAN
         conn.close()
 
 
-def get_used_video_urls(DB_config:dict, table_name='USED_VIDEO_URLS') -> set:
+def get_used_video_urls(table_name='USED_VIDEO_URLS') -> set:
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -247,7 +249,7 @@ def get_used_video_urls(DB_config:dict, table_name='USED_VIDEO_URLS') -> set:
         conn.close()
 
 
-def insert_new_video_urls(DB_config:dict, new_video_urls, table_name='USED_VIDEO_URLS'):
+def insert_new_video_urls(new_video_urls, table_name='USED_VIDEO_URLS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -274,7 +276,7 @@ def insert_new_video_urls(DB_config:dict, new_video_urls, table_name='USED_VIDEO
         conn.close()
 
 
-def clear_up_db(DB_config:dict):
+def clear_up_db():
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -296,17 +298,17 @@ def clear_up_db(DB_config:dict):
 
 
 # Main logic
-async def suggest_new_posts(DB_config:dict, delete_bad_creators=True): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         # JUST TO CHECK 
         await bot.send_message(ADMIN_GROUP_CHAT_ID, str(DB_config)) # + ' (youtube_video_link)'
         # JUST TO CHECK 
 
 
-        tracked_yt_channels = get_tracked_channels(DB_config)
+        tracked_yt_channels = get_tracked_channels()
         yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
         print(f"\n{'-'*15}New check cycle{'-'*15}")
-        new_latest_video_urls, bad_creators = await check_new_videos(DB_config, yt_channel_urls, tracked_yt_channels) # channel:video_url
+        new_latest_video_urls, bad_creators = await check_new_videos(yt_channel_urls, tracked_yt_channels) # channel:video_url
         
         if len(new_latest_video_urls)>0:
             for video_url in new_latest_video_urls:
@@ -334,27 +336,26 @@ async def suggest_new_posts(DB_config:dict, delete_bad_creators=True): # delete_
 
                 await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
 
-            insert_new_video_urls(DB_config,new_latest_video_urls)
+            insert_new_video_urls(new_latest_video_urls)
 
         if delete_bad_creators:
             if len(bad_creators)>0:
                 print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
-                remove_yt_creators(DB_config, bad_creators)
+                remove_yt_creators(bad_creators)
                         
         await asyncio.sleep(10)  # Check for new videos every 5 hours (18000 sec)
 
 
 # Run the bot
 async def run_bot() -> None:
-    DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
     if TEST_MODE==1:
-        clear_up_db(DB_config)
+        clear_up_db()
 
     # Register handlers
     dp.callback_query.register(process_callback, lambda c: c.data in ['approve', 'disapprove'])
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
-    asyncio.create_task(suggest_new_posts(DB_config))
+    asyncio.create_task(suggest_new_posts())
     await dp.start_polling(bot)
 
 
