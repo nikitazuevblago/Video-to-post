@@ -221,7 +221,7 @@ async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS')
             cur.close()
             conn.close()
     else:
-        await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] You shall not pass stranger!')
+        await message.reply(f'[INFO] You shall not pass stranger!')
 
 def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
