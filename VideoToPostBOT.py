@@ -6,7 +6,7 @@ import re
 from os import getenv
 
 from aiogram import Bot, Dispatcher, Router
-from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message, BotCommand
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -48,7 +48,7 @@ bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTM
 
 @dp.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
-    await message.answer(f"Hello, I'm a bot created by @blago7daren!")
+    await message.answer(f"Hello, I'm a bot created by @blago7daren! Please contact me if something happens.")
 
 
 # FN to convert "ISO 8601" format to seconds
@@ -125,7 +125,8 @@ async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
     return new_latest_video_urls, bad_creators
 
 
-async def process_callback(callback_query: CallbackQuery):
+# FNs which process callbacks
+async def process_post_reaction(callback_query: CallbackQuery):
     # Acknowledge the callback query to stop the "loading" state
     await callback_query.answer(cache_time=12)
 
@@ -151,8 +152,29 @@ async def process_callback(callback_query: CallbackQuery):
     elif action == 'disapprove':
         response_text = f"{user_name} disapproved the post."
     
-    # Optionally, reply to the user to confirm the action
+    # Reply to the user to confirm the action
     await callback_query.message.reply(response_text)
+
+
+async def process_lang(callback_query: CallbackQuery):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback_query.answer(cache_time=12)
+
+    # Set the default language for user in DB
+    chosen_lang = callback_query.data
+    user_id = callback_query.from_user.id # Use it for setting default language for user
+
+    if chosen_lang=='ru':
+        response_text = "Выбраный язык: Русский"
+    elif chosen_lang=='en': 
+        response_text = "Chosen language: English"
+
+    # Logic which interacts with DB....
+    #...
+
+    # Reply to the user to confirm the action
+    await callback_query.message.reply(response_text)
+
 
 
 # FNs interacting with DB PostgreSQL
@@ -359,17 +381,51 @@ async def suggest_new_posts(delete_bad_creators=True): # delete_bad_creators beh
         else:
             await asyncio.sleep(18000) # Check for new videos every 5 hours (18000 sec)
 
+
+# List of bot commands in menu
+async def set_help_menu():
+    commands = [
+        BotCommand(command="/set_language", description="Choose the language"),
+        BotCommand(command="/help", description="Get instructions on how to use the bot"),
+        BotCommand(command="/new_channels", description="Track new YouTube channels to get posts automatically"),
+        BotCommand(command="/convert_video", description="Add a YouTube video URL for processing"),
+        BotCommand(command="/settings", description="Configure bot settings"), # post settings, post destination(maybe later create post_destinations)
+        BotCommand(command="/payment", description="Top up your balance"),
+        BotCommand(command="/support", description="Contact the creator")
+    ]
+    await bot.set_my_commands(commands)
+
+
+@dp.message(Command("set_language"))
+async def set_language(message: Message):
+    # Create inline keyboard with language options
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='Русский 🇷🇺', callback_data='ru')],
+        [InlineKeyboardButton(text='English 🇺🇸', callback_data='en')]])
+
+    # Print the message on certain language based on the language in DB, here I print the english message by default
+    await bot.send_message(
+            message.chat.id, 
+            "Choose language / Выберите язык",
+            reply_markup=keyboard
+    )
+
+
 # Run the bot
 async def run_bot() -> None:
     if TEST_MODE==1:
         clear_up_db()
 
+    # Set menu for tg bot
+    await set_help_menu()
+
     # Register handlers
-    dp.callback_query.register(process_callback, lambda c: c.data in ['approve', 'disapprove'])
+    dp.callback_query.register(process_post_reaction, lambda c: c.data in ['approve', 'disapprove'])
+    dp.callback_query.register(process_lang, lambda c: c.data in ['ru', 'en'])
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, skip_updates=True)
 
 
 if __name__ == "__main__":
