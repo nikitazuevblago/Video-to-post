@@ -12,6 +12,7 @@ from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboar
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
+from aiogram.enums.chat_member_status import ChatMemberStatus
 from aiogram.types import Message
 import aiotube
 from pytube import Channel
@@ -30,8 +31,8 @@ except:
 
 # All handlers should be attached to the Dispatcher (or Router)
 dp = Dispatcher()
-router = Router()
-dp.include_router(router)
+#router = Router()
+#dp.include_router(router)
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 
@@ -115,7 +116,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=45, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
@@ -204,19 +205,10 @@ class create_project_FORM(StatesGroup):
 async def create_project(message: Message, state: FSMContext):
     await state.set_state(create_project_FORM.project_name)
     await message.reply("Project name")
-    # project_name = await get_input("Project name")
-    # admin_group_id = await get_input("Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS")
-    # tg_channel_id = await get_input("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg group for viewers)")
-
-    # # Changes in DB
-    # insert_new_project(project_name, admin_group_id, tg_channel_id)
-
-    # # Report changes
-    # await message.reply(f"[INFO] The project {project_name} has been created!...")
 
 
 # State handler for project_name
-@router.message(create_project_FORM.project_name)
+@dp.message(create_project_FORM.project_name)
 async def process_name(message: Message, state: FSMContext):
     await state.update_data(project_name=message.text)
     await state.set_state(create_project_FORM.admin_group_id)
@@ -224,25 +216,34 @@ async def process_name(message: Message, state: FSMContext):
 
 
 # State handler for admin_group_id
-@router.message(create_project_FORM.admin_group_id)
+@dp.message(create_project_FORM.admin_group_id)
 async def process_name(message: Message, state: FSMContext):
     await state.update_data(admin_group_id=message.text)
     await state.set_state(create_project_FORM.tg_channel_id)
-    await message.reply("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg group for viewers)")
+    await message.reply("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg channel for viewers)")
 
 
 # State handler for tg_channel_id
-@router.message(create_project_FORM.tg_channel_id)
+@dp.message(create_project_FORM.tg_channel_id)
 async def process_name(message: Message, state: FSMContext):
     await state.update_data(tg_channel_id=message.text)
     data = await state.get_data()
 
     # Changes in DB
-    insert_new_project(data['project_name'], data['admin_group_id'], data['tg_channel_id'])
+    try:
+        response = insert_new_project(data['project_name'], int(data['admin_group_id']), int(data['tg_channel_id']))
+    except:
+        response = False
+
+    if response:
+        chat_id = message.chat.id
+        await bot.send_message(chat_id, f"[INFO] The project {data['project_name']} has been created!...")
+    else:
+        chat_id = message.chat.id
+        await bot.send_message(chat_id, f"The new project HASN'T been created!\nP.s. The frequent error - letters in 'Admin group id' or 'TG channel id'")
 
     # Finish conversation
     await state.clear()
-    await message.reply(f"[INFO] The project {data['project_name']} has been created!...")
 
     
 @dp.message(Command('get_group_id'))
@@ -271,10 +272,11 @@ async def set_language(message: Message):
 @dp.message(Command("new_channels"))
 async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS'):
     try:
-        # Extract the channels from the message text
-        channels = message.text.split(' ', 1)[1]
+        '''# Extract the channels from the message text
+        # channels = message.text.split(' ', 1)[1]
+
         # Remove any extra spaces and split the channel names by comma
-        new_channels = [channel.strip() for channel in channels.split(',')]
+        # new_channels = [channel.strip() for channel in channels.split(',')] # WARNING: MAKE THE SEQUENTIAL DATA GATHERING AS IN /create_project'''
 
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -286,24 +288,42 @@ async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS')
         admin_group_ids = {channel_tuple[0] for channel_tuple in admin_group_ids_postgres}
         if message.chat.id in admin_group_ids:
             chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
-            is_admin = chat_member.is_chat_admin() # WARNING: is channel owner admin by default??
-            if is_admin:
-                for channel in new_channels:
-                    try:
-                        cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                        conn.commit()
-                    except psycopg2.errors.UniqueViolation:
-                        conn.rollback()
-                        await bot.send_message(message.chat.id, f'[INFO] Channel {channel} already exists in DB!')
-                        await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
-                    except psycopg2.errors.UndefinedTable:
-                        conn.rollback()
-                        await bot.send_message(message.chat.id, f'[INFO] Table "{table_name}" does not exist, creating one...')
-                        cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                                        channel VARCHAR(255) PRIMARY KEY);""")
-                        cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                        conn.commit()
-                        await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+            if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}: # WARNING: is channel owner admin by default??
+                cur.execute(f"""SELECT TG_CHANNEL_ID FROM PROJECTS WHERE admin_group_id={message.chat.id}""")
+                related_tg_channels_ids_postgres = cur.fetchall()
+                if len(related_tg_channels_ids_postgres)>0:
+                    related_tg_channels_ids = [row[0] for row in related_tg_channels_ids_postgres]
+                    
+                    # Create keyboard and add buttons dynamically
+                    markup = InlineKeyboardMarkup(resize_keyboard=True)
+                    id_to_name = {}
+                    for related_tg_channel_id in related_tg_channels_ids:
+                        channel_name = await bot.get_chat(related_tg_channel_id)
+                        markup.add(InlineKeyboardButton(channel_name))
+                        id_to_name[channel_name] = related_tg_channel_id
+                        
+                    await bot.send_message(message.chat.id, f'Pick to which TG channel attach new YT channels', reply_markup=markup)
+
+                    # for channel in new_channels:
+                    #     try:
+                    #         cur.execute(f"""INSERT INTO {table_name} (YT_channel_id, TG_channel_id) VALUES ('{channel}', {TG_channel_id});""")
+                    #         conn.commit()
+                    #         await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+                    #     except psycopg2.errors.UniqueViolation:
+                    #         conn.rollback()
+                    #         await bot.send_message(message.chat.id, f'[INFO] Channel {channel} already exists in the project!')
+                    #     except psycopg2.errors.UndefinedTable:
+                    #         conn.rollback()
+                    #         '''
+                    #         # await bot.send_message(message.chat.id, f'[INFO] Table "{table_name}" does not exist, creating one...')
+                    #         # cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
+                    #         #                 channel VARCHAR(255) PRIMARY KEY);""")
+                    #         # cur.execute(f"""INSERT INTO {table_name} (YT_channel_id) VALUES ('{channel}');""")
+                    #         # conn.commit()
+                    #         # await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+                    #         '''
+                else:
+                    await bot.send_message(message.chat.id, f'No TG channels attached to admin group with id {message.chat.id}!')
             else:
                 await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
         else:

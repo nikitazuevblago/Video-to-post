@@ -170,31 +170,32 @@ def create_db():
                                 video_url VARCHAR(255) PRIMARY KEY);""")
         conn.commit()
         # cur.execute(f"""CREATE TABLE IF NOT EXISTS PROJECT_ADMINS (
-        #                     TG_channel_id INT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
-        #                     user_id INT REFERENCES USERS(user_id) ON DELETE CASCADE,       
+        #                     TG_channel_id BIGINT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
+        #                     user_id BIGINT REFERENCES USERS(user_id) ON DELETE CASCADE,       
         #             );""")
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS PROJECTS (
                             project_name VARCHAR(25) UNIQUE,
-                            admin_group_id INT,
-                            TG_channel_id INT PRIMARY KEY);""")
+                            admin_group_id BIGINT,
+                            TG_channel_id BIGINT PRIMARY KEY);""")
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS TRACKED_YT_CHANNELS (
-                            YT_channel_id INT PRIMARY KEY,
-                            TG_channel_id INT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE);""")
+                            YT_channel_id VARCHAR(50),
+                            TG_channel_id BIGINT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
+                            PRIMARY KEY (YT_channel_id, TG_channel_id));""")
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS USERS (
-                                user_id INT PRIMARY KEY,
+                                user_id BIGINT PRIMARY KEY,
                                 lang VARCHAR(5),
-                                balance INT
+                                balance BIGINT
                     );""")
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS TRANSACTIONS (
-                                transaction_id INT PRIMARY KEY,
-                                user_id INT,
+                                transaction_id BIGINT PRIMARY KEY,
+                                user_id BIGINT,
                                 sum FLOAT,
                                 date TIMESTAMP
                     );""")
@@ -215,14 +216,25 @@ def insert_new_project(project_name, admin_group_id, tg_channel_id, table_name='
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
         try:
-            cur.execute(f"""INSERT INTO {table_name} (project_name, admin_group_id, TG_channel_id) VALUES ('{project_name}','{admin_group_id}','{tg_channel_id}');""")
+            cur.execute(f"""INSERT INTO {table_name} (project_name, admin_group_id, TG_channel_id) VALUES ('{project_name}',{admin_group_id},{tg_channel_id});""")
             conn.commit()
+            return True
         except psycopg2.errors.UndefinedTable:
             conn.rollback()
-            raise ValueError(f'Table {table_name} does not exist!')
+            print(f'[ERROR] Table {table_name} does not exist!')
+            return False
+        
+        except psycopg2.errors.NumericValueOutOfRange:
+            conn.rollback()
+            print('[ERROR] Letters in BIGINT column!')
+            return False
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while insert_new_project()')
+        print('ERROR: cannot connect to PostgreSQL while insert_new_project()')
+        return False
+
+    except psycopg2.errors.UndefinedColumn:
+        return False
     
     finally:
         cur.close()
