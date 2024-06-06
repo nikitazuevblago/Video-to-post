@@ -6,7 +6,9 @@ import re
 from os import getenv
 
 from aiogram import Bot, Dispatcher, Router
-from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message, BotCommand
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -15,35 +17,22 @@ import aiotube
 from pytube import Channel
 import psycopg2
 from VideoToPost import VideoToPost
+from DB_functions import *
+from callback_functions import *
 try:
-    from secret_key import BOT_TOKEN, YT_API_KEY, TG_CHANNEL_ID, ADMIN_GROUP_CHAT_ID, HOST, DBNAME, USER, PASSWORD, PORT, TEST_MODE, CREATOR_ID, OWNER_ID
+    from secret_key import BOT_TOKEN, YT_API_KEY, TEST_MODE, CREATOR_ID
 except:
     BOT_TOKEN = getenv('BOT_TOKEN')
     YT_API_KEY = getenv('YT_API_KEY')
-    TG_CHANNEL_ID = getenv('TG_CHANNEL_ID')
-    ADMIN_GROUP_CHAT_ID = getenv('ADMIN_GROUP_CHAT_ID')
-
-    # DB env vars
-    HOST = getenv('PGHOST')
-    DBNAME = getenv('POSTGRES_DB')
-    USER = getenv('PGUSER')
-    PASSWORD = getenv('POSTGRES_PASSWORD')
-    PORT = int(getenv('PGPORT'))
-
     TEST_MODE = int(getenv('TEST_MODE'))
-
-    # Admins IDs
     CREATOR_ID = int(getenv('CREATOR_ID'))
-    OWNER_ID = int(getenv('OWNER_ID'))
-
-DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
 
 
-# All handlers should be attached to the Router (or Dispatcher)
+# All handlers should be attached to the Dispatcher (or Router)
 dp = Dispatcher()
-router = Router(name=__name__)
+router = Router()
+dp.include_router(router)
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-
 
 
 @dp.message(CommandStart())
@@ -64,7 +53,7 @@ def parse_duration(duration):
     return total_seconds
 
 
-async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
+async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels, yt_api=False):
     new_latest_videos = set() # creator:video_url
     bad_creators = set()
 
@@ -72,8 +61,8 @@ async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
         yt_author = tracked_yt_channels[i]
 
         if yt_api:
-            channel_id = Channel(channel_url).channel_id
-            url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={channel_id}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
+            yt_channel_id = Channel(channel_url).channel_id
+            url = f'https://www.googleapis.com/youtube/v3/search?key={YT_API_KEY}&channelId={yt_channel_id}&part=snippet,id&order=date&maxResults=5&type=video'#&videoDefinition=any'
             response = requests.get(url).json()
             try: # Some creator's videos can't be accessed, create a logger which notifies about such youtube creator
                 latest_video = response['items'][0]
@@ -92,11 +81,11 @@ async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
                 elif video_duration<60:
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
+                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
                 else:
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
+                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
             except:
-                await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> "{response}"')
+                await bot.send_message(admin_group_id, f'[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> "{response}"')
                 bad_creators.add(yt_author)
         
         # Using aiotube library
@@ -112,12 +101,12 @@ async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
                 elif video_duration<60:
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
+                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
                 else:
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
+                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
                     
             except Exception as e:
-                await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)')
+                await bot.send_message(admin_group_id, f'[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)')
                 bad_creators.add(yt_author)
 
     used_video_urls = get_used_video_urls()
@@ -125,261 +114,67 @@ async def check_new_videos(yt_channel_urls, tracked_yt_channels, yt_api=False):
     return new_latest_video_urls, bad_creators
 
 
-# FNs which process callbacks
-async def process_post_reaction(callback_query: CallbackQuery):
-    # Acknowledge the callback query to stop the "loading" state
-    await callback_query.answer(cache_time=12)
-
-    # Edit the original message to remove the inline keyboard
-    await callback_query.message.edit_reply_markup(reply_markup=None)
-
-    action = callback_query.data
-    user_name = callback_query.from_user.full_name
-    if action == 'approve':
-        response_text = f"{user_name} approved the post."
-        # Send the post from admin group to telegram channel
-        if callback_query.message.photo:
-            await bot.send_photo(
-                TG_CHANNEL_ID,
-                photo=callback_query.message.photo[-1].file_id,  # Send the highest resolution photo
-                caption=callback_query.message.caption
-            )
-        else:
-            await bot.send_message(
-                TG_CHANNEL_ID,
-                text=callback_query.message.text
-            )
-    elif action == 'disapprove':
-        response_text = f"{user_name} disapproved the post."
-    
-    # Reply to the user to confirm the action
-    await callback_query.message.reply(response_text)
-
-
-async def process_lang(callback_query: CallbackQuery):
-    # Acknowledge the callback query to stop the "loading" state
-    await callback_query.answer(cache_time=12)
-
-    # Set the default language for user in DB
-    chosen_lang = callback_query.data
-    user_id = callback_query.from_user.id # Use it for setting default language for user
-
-    if chosen_lang=='ru':
-        response_text = "Выбраный язык: Русский"
-    elif chosen_lang=='en': 
-        response_text = "Chosen language: English"
-
-    # Logic which interacts with DB....
-    #...
-
-    # Reply to the user to confirm the action
-    await callback_query.message.reply(response_text)
-
-
-
-# FNs interacting with DB PostgreSQL
-def get_tracked_channels(table_name='TRACKED_YT_CHANNELS'):
-    try:
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-        try:
-            cur.execute(f"""SELECT * FROM {table_name};""")
-            yt_channels_postgres = cur.fetchall()
-            tracked_yt_channels = [channel_tuple[0] for channel_tuple in yt_channels_postgres]
-            return tracked_yt_channels
-        except psycopg2.errors.UndefinedTable:
-            conn.rollback()
-            bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one and putting default values...')
-            cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                            channel VARCHAR(255) PRIMARY KEY);""")
-            default_channels = ['imangadzhi','noahkagan']
-            for channel in default_channels:
-                cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                conn.commit()
-            return default_channels
-            
-
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while get_tracked_yt_creators()')
-    finally:
-        cur.close()
-        conn.close()
-
-
-@dp.message(Command("new_channels"))
-async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS'):
-    if int(message.from_user.id) in [CREATOR_ID,OWNER_ID]:
-        try:
-            # Extract the channels from the message text
-            channels = message.text.split(' ', 1)[1]
-            # Remove any extra spaces and split the channel names by comma
-            new_channels = [channel.strip() for channel in channels.split(',')]
-
-            # Establish db connection
-            conn = psycopg2.connect(**DB_config)
-            cur = conn.cursor()
-            for channel in new_channels:
-                try:
-                    cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                    conn.commit()
-                except psycopg2.errors.UniqueViolation:
-                    conn.rollback()
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channel {channel} already exists in DB!')
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
-                except psycopg2.errors.UndefinedTable:
-                    conn.rollback()
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one...')
-                    cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                                    channel VARCHAR(255) PRIMARY KEY);""")
-                    cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-                    conn.commit()
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
-        except IndexError:
-            # If the command is used incorrectly, send an error message
-            await message.reply("Please use the correct format: /new_channels channel1,channel2")
-        except psycopg2.errors.OperationalError:
-            raise('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
-        finally:
-            cur.close()
-            conn.close()
-    else:
-        await message.reply(f'[INFO] You shall not pass stranger!')
-
-def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
-    try:
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-        for channel in bad_channels:
-            cur.execute(f"""DELETE FROM {table_name} WHERE channel = '{channel}';""")
-            conn.commit()
-
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while remove_yt_creators()')
-    finally:
-        cur.close()
-        conn.close()
-
-
-def get_used_video_urls(table_name='USED_VIDEO_URLS') -> set:
-    try:
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-        try:
-            cur.execute(f"""SELECT video_url FROM {table_name};""")
-            video_urls_postgres = cur.fetchall()
-            used_video_urls = {url_tuple[0] for url_tuple in video_urls_postgres}
-            return used_video_urls
-        except psycopg2.errors.UndefinedTable:
-            conn.rollback()
-            bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one...') 
-            cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                            video_url VARCHAR(255) PRIMARY KEY);""")
-            conn.commit()
-            return set()
-            
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while get_used_video_urls()')
-    finally:
-        cur.close()
-        conn.close()
-
-
-def insert_new_video_urls(new_video_urls, table_name='USED_VIDEO_URLS'):
-    try:
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-        for video_url in new_video_urls:
-            try:
-                cur.execute(f"""INSERT INTO {table_name} (video_url) VALUES ('{video_url}');""")
-                conn.commit()
-            except psycopg2.errors.UniqueViolation:
-                conn.rollback()
-                bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Video_url {video_url} already exists in DB!')
-            except psycopg2.errors.UndefinedTable:
-                conn.rollback()
-                bot.send_message(ADMIN_GROUP_CHAT_ID, f'[INFO] Table "{table_name}" does not exist, creating one...')
-                cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                                video_url VARCHAR(255) PRIMARY KEY);""")
-                cur.execute(f"""INSERT INTO {table_name} (video_url) VALUES ('{video_url}');""")
-                conn.commit()
-
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while insert_new_video_urls()')
-    finally:
-        cur.close()
-        conn.close()
-
-
-def clear_up_db():
-    try:
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-        tables_to_drop = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS']
-        for table in tables_to_drop:
-            try:
-                cur.execute(f"""DROP TABLE {table};""")
-                conn.commit()
-            except psycopg2.errors.UndefinedTable:
-                conn.rollback()
-
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while clear_up_db()')
-    
-    finally:
-        cur.close()
-        conn.close()
-
-
-# Main logic
-async def suggest_new_posts(delete_bad_creators=True): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+# Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
-        tracked_yt_channels = get_tracked_channels()
-        yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
-        print(f"\n{'-'*15}New check cycle{'-'*15}")
-        new_latest_video_urls, bad_creators = await check_new_videos(yt_channel_urls, tracked_yt_channels) # channel:video_url
-        
-        if len(new_latest_video_urls)>0:
-            for video_url in new_latest_video_urls:
-                try:
-                    post_name, post_dict = VideoToPost(video_url, img=True) 
-                except ValueError as e:
-                    raise ValueError(e)
-                except:
-                    print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
-                    continue
+        all_projects = get_projects_details()
+        if len(all_projects)>0:
+            for tg_channel_id, admin_group_id in all_projects:
+                tracked_yt_channels = get_tracked_channels(tg_channel_id)
+                if len(tracked_yt_channels)>0:
+                    yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
+                    print(f"\n{'-'*15}New check cycle{'-'*15}")
+                    new_latest_video_urls, bad_creators = await check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels) # channel:video_url
+                    
+                    if len(new_latest_video_urls)>0:
+                        for video_url in new_latest_video_urls:
+                            try:
+                                post_name, post_dict = VideoToPost(video_url, img=True) 
+                            except ValueError as e:
+                                raise ValueError(e)
+                            except:
+                                print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
+                                continue
 
-                # Create inline keyboard with approve and disapprove buttons
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text='Approve', callback_data='approve')],
-                    [InlineKeyboardButton(text='Disapprove', callback_data='disapprove')]])
+                            # Create inline keyboard with approve and disapprove buttons
+                            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                                [InlineKeyboardButton(text='Approve', callback_data='approve')],
+                                [InlineKeyboardButton(text='Disapprove', callback_data='disapprove')]])
 
-                if 'post_img' in post_dict.keys():
-                    # Send image with a caption
-                    await bot.send_photo(
-                            ADMIN_GROUP_CHAT_ID, 
-                            BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
-                            caption=post_dict['post_txt'], reply_markup=keyboard)
+                            if 'post_img' in post_dict.keys():
+                                # Send image with a caption
+                                await bot.send_photo(
+                                        admin_group_id, 
+                                        BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
+                                        caption=post_dict['post_txt'], reply_markup=keyboard)
+                            else:
+                                await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard) # + ' (youtube_video_link)'
+
+                            await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
+
+                        insert_new_video_urls(new_latest_video_urls)
+
+                    if delete_bad_creators:
+                        if len(bad_creators)>0:
+                            print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
+                            remove_yt_creators(bad_creators)
+
+                    if TEST_MODE==1:                
+                        await asyncio.sleep(test_sleep)  
+                    else:
+                        await asyncio.sleep(production_sleep) # Check for new videos every 5 hours (18000 sec)
                 else:
-                    await bot.send_message(ADMIN_GROUP_CHAT_ID, post_dict['post_txt'], reply_markup=keyboard) # + ' (youtube_video_link)'
-
-                await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
-
-            insert_new_video_urls(new_latest_video_urls)
-
-        if delete_bad_creators:
-            if len(bad_creators)>0:
-                print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
-                remove_yt_creators(bad_creators)
-
-        if TEST_MODE==1:                
-            await asyncio.sleep(10)  
+                    await bot.send_message(CREATOR_ID, f"[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work...")
+                    if TEST_MODE==1:                
+                        await asyncio.sleep(test_sleep)  
+                    else:
+                        await asyncio.sleep(production_sleep)
         else:
-            await asyncio.sleep(18000) # Check for new videos every 5 hours (18000 sec)
+            await bot.send_message(CREATOR_ID, f"[INFO] There are 0 projects! Auto post sugessting doesn't work...")
+            if TEST_MODE==1:                
+                await asyncio.sleep(test_sleep)  
+            else:
+                await asyncio.sleep(production_sleep)
 
 
 # List of bot commands in menu
@@ -388,12 +183,74 @@ async def set_help_menu():
         BotCommand(command="/set_language", description="Choose the language"),
         BotCommand(command="/help", description="Get instructions on how to use the bot"),
         BotCommand(command="/new_channels", description="Track new YouTube channels to get posts automatically"),
-        BotCommand(command="/convert_video", description="Add a YouTube video URL for processing"),
+        BotCommand(command="/process_video_url", description="Convert a YouTube video URL into telegram post manually"),
         BotCommand(command="/settings", description="Configure bot settings"), # post settings, post destination(maybe later create post_destinations)
-        BotCommand(command="/payment", description="Top up your balance"),
-        BotCommand(command="/support", description="Contact the creator")
+        BotCommand(command="/top_up", description="Top up your balance"),
+        BotCommand(command="/support", description="Contact the creator"),
+        BotCommand(command="/create_project", description="Project is a combo of (name,admin_group,tg_channel)"),
+        BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id")
     ]
     await bot.set_my_commands(commands)
+
+
+# Sequential data gathering for /create_project 
+# Define states
+class create_project_FORM(StatesGroup):
+    project_name = State()
+    admin_group_id = State()
+    tg_channel_id = State()
+
+@dp.message(Command('create_project'))
+async def create_project(message: Message, state: FSMContext):
+    await state.set_state(create_project_FORM.project_name)
+    await message.reply("Project name")
+    # project_name = await get_input("Project name")
+    # admin_group_id = await get_input("Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS")
+    # tg_channel_id = await get_input("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg group for viewers)")
+
+    # # Changes in DB
+    # insert_new_project(project_name, admin_group_id, tg_channel_id)
+
+    # # Report changes
+    # await message.reply(f"[INFO] The project {project_name} has been created!...")
+
+
+# State handler for project_name
+@router.message(create_project_FORM.project_name)
+async def process_name(message: Message, state: FSMContext):
+    await state.update_data(project_name=message.text)
+    await state.set_state(create_project_FORM.admin_group_id)
+    await message.reply("Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS)")
+
+
+# State handler for admin_group_id
+@router.message(create_project_FORM.admin_group_id)
+async def process_name(message: Message, state: FSMContext):
+    await state.update_data(admin_group_id=message.text)
+    await state.set_state(create_project_FORM.tg_channel_id)
+    await message.reply("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg group for viewers)")
+
+
+# State handler for tg_channel_id
+@router.message(create_project_FORM.tg_channel_id)
+async def process_name(message: Message, state: FSMContext):
+    await state.update_data(tg_channel_id=message.text)
+    data = await state.get_data()
+
+    # Changes in DB
+    insert_new_project(data['project_name'], data['admin_group_id'], data['tg_channel_id'])
+
+    # Finish conversation
+    await state.clear()
+    await message.reply(f"[INFO] The project {data['project_name']} has been created!...")
+
+    
+@dp.message(Command('get_group_id'))
+async def get_group_id(message: Message):
+    if message.chat.type in ['group', 'supergroup']:
+        await message.reply(f"ID of this group: {message.chat.id}")
+    else:
+        await message.reply("This command can only be used in a group or supergroup.")
 
 
 @dp.message(Command("set_language"))
@@ -411,10 +268,64 @@ async def set_language(message: Message):
     )
 
 
+@dp.message(Command("new_channels"))
+async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS'):
+    try:
+        # Extract the channels from the message text
+        channels = message.text.split(' ', 1)[1]
+        # Remove any extra spaces and split the channel names by comma
+        new_channels = [channel.strip() for channel in channels.split(',')]
+
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        # Check if the command /new_channels executes in admin_group
+        cur.execute("""SELECT admin_group_id FROM PROJECTS""")
+        admin_group_ids_postgres = cur.fetchall()
+        admin_group_ids = {channel_tuple[0] for channel_tuple in admin_group_ids_postgres}
+        if message.chat.id in admin_group_ids:
+            chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
+            is_admin = chat_member.is_chat_admin() # WARNING: is channel owner admin by default??
+            if is_admin:
+                for channel in new_channels:
+                    try:
+                        cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
+                        conn.commit()
+                    except psycopg2.errors.UniqueViolation:
+                        conn.rollback()
+                        await bot.send_message(message.chat.id, f'[INFO] Channel {channel} already exists in DB!')
+                        await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+                    except psycopg2.errors.UndefinedTable:
+                        conn.rollback()
+                        await bot.send_message(message.chat.id, f'[INFO] Table "{table_name}" does not exist, creating one...')
+                        cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
+                                        channel VARCHAR(255) PRIMARY KEY);""")
+                        cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
+                        conn.commit()
+                        await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
+            else:
+                await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+        else:
+            await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
+    except IndexError:
+        # WARNING - RESPONSE BASED ON LANG
+        # If the command is used incorrectly, send an error message
+        await message.reply("Please use the correct format: /new_channels channel1,channel2")
+    except psycopg2.errors.OperationalError:
+        raise('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
+    finally:
+        cur.close()
+        conn.close()
+
+
 # Run the bot
 async def run_bot() -> None:
     if TEST_MODE==1:
         clear_up_db()
+
+    # Create tables if not exist
+    create_db()
 
     # Set menu for tg bot
     await set_help_menu()
