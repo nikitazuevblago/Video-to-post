@@ -15,22 +15,21 @@ async def process_post_reaction(callback_query: CallbackQuery): # Process post r
     # Edit the original message to remove the inline keyboard
     await callback_query.message.edit_reply_markup(reply_markup=None)
 
-    action = callback_query.data
+    action = callback_query.data.replace('post_','')
     user_name = callback_query.from_user.full_name
-    if action == 'approve':
+    if 'to' in action:
         response_text = f"{user_name} approved the post."
         # Send the post from admin group to telegram channel
-        print(callback_query.chat_instance)
-        print(callback_query.message.chat.id)
+        tg_channel_id = action.split('_to_')[-1]
         if callback_query.message.photo:
             await bot.send_photo(
-                callback_query.message.chat.id, # WARNING - change to target TG_channel
+                tg_channel_id, # WARNING - change to target TG_channel
                 photo=callback_query.message.photo[-1].file_id,  # Send the highest resolution photo
                 caption=callback_query.message.caption
             )
         else:
             await bot.send_message(
-                callback_query.message.chat.id, # WARNING - change to target TG_channel
+                tg_channel_id, # WARNING - change to target TG_channel
                 text=callback_query.message.text
             )
     elif action == 'disapprove':
@@ -76,9 +75,11 @@ async def process_new_channels(callback_query: CallbackQuery, state: FSMContext)
     await state.update_data(chosen_tg_channel_id=chosen_tg_channel_id)
     
     await state.set_state(new_channels_FORM.new_YT_channels)
+
+    # Edit the message to remove the inline keyboard
+    await callback_query.message.edit_reply_markup(reply_markup=None)
+
     await callback_query.message.reply(f'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"\nEnter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino')
-    current_state = await state.get_state()
-    print(f'current_state is {current_state}')
     
     
 # State handler for new_YT_channels

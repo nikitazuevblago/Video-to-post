@@ -16,6 +16,8 @@ from pytube import Channel
 from VideoToPost import VideoToPost
 from DB_functions import *
 from callback_functions import *
+from bot_settings import bot,dp
+
 try:
     from secret_key import YT_API_KEY, TEST_MODE, CREATOR_ID
 except:
@@ -23,19 +25,14 @@ except:
     TEST_MODE = int(getenv('TEST_MODE'))
     CREATOR_ID = int(getenv('CREATOR_ID'))
 
-
-# # All handlers should be attached to the Dispatcher (or Router)
-# storage = MemoryStorage()
-# dp = Dispatcher(storage=storage)
-# #router = Router()
-# #dp.include_router(router)
-# bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-from bot_settings import bot,dp
+# @dp.message(CommandStart())
+# async def command_start_handler(message: Message) -> None:
+#     await message.answer(f"Hello, I'm a bot created by @blago7daren! Please contact me if something happens.")
 
 
-@dp.message(CommandStart())
+@dp.message(Command('support'))
 async def command_start_handler(message: Message) -> None:
-    await message.answer(f"Hello, I'm a bot created by @blago7daren! Please contact me if something happens.")
+    await message.answer(f"Hello, I'm @blago7daren! Please contact me if something bad happens.")
 
 
 # FN to convert "ISO 8601" format to seconds
@@ -113,7 +110,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=45, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
@@ -136,8 +133,8 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
 
                             # Create inline keyboard with approve and disapprove buttons
                             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                                [InlineKeyboardButton(text='Approve', callback_data='approve')],
-                                [InlineKeyboardButton(text='Disapprove', callback_data='disapprove')]])
+                                [InlineKeyboardButton(text='Approve', callback_data=f'post_approve_to_{tg_channel_id}')],
+                                [InlineKeyboardButton(text='Disapprove', callback_data=f'post_disapprove')]])
 
                             if 'post_img' in post_dict.keys():
                                 # Send image with a caption
@@ -162,7 +159,7 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                     else:
                         await asyncio.sleep(production_sleep) # Check for new videos every 5 hours (18000 sec)
                 else:
-                    await bot.send_message(CREATOR_ID, f"[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work...")
+                    await bot.send_message(admin_group_id, f"[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work...")
                     if TEST_MODE==1:                
                         await asyncio.sleep(test_sleep)  
                     else:
@@ -184,6 +181,7 @@ async def set_help_menu():
         BotCommand(command="/process_video_url", description="Convert a YouTube video URL into telegram post manually"),
         BotCommand(command="/settings", description="Configure bot settings"), # post settings, post destination(maybe later create post_destinations)
         BotCommand(command="/top_up", description="Top up your balance"),
+        BotCommand(command="/balance", description="Check balance"),
         BotCommand(command="/support", description="Contact the creator"),
         BotCommand(command="/create_project", description="Project is a combo of (name,admin_group,tg_channel)"),
         BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id")
@@ -308,7 +306,7 @@ async def run_bot() -> None:
     await set_help_menu()
 
     # Register handlers
-    dp.callback_query.register(process_post_reaction, lambda c: c.data in ['approve', 'disapprove'])
+    dp.callback_query.register(process_post_reaction, lambda c: c.data.startswith('post_'))
     dp.callback_query.register(process_lang, lambda c: c.data in ['ru', 'en'])
     dp.callback_query.register(process_new_channels, lambda c: c.data.startswith('new_channels_to_'))
     
