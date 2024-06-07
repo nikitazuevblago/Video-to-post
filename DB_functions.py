@@ -1,7 +1,7 @@
 from os import getenv
 import psycopg2
 try:
-    from secret_key import HOST, DBNAME, USER, PASSWORD, PORT, CREATOR_ID
+    from secret_key import HOST, DBNAME, USER, PASSWORD, PORT, CREATOR_ID, TESTER_ID, TEST_MODE
 except:
     BOT_TOKEN = getenv('BOT_TOKEN')
 
@@ -11,6 +11,9 @@ except:
     USER = getenv('PGUSER')
     PASSWORD = getenv('POSTGRES_PASSWORD')
     PORT = int(getenv('PGPORT'))
+    CREATOR_ID = int(getenv('CREATOR_ID'))
+    TESTER_ID = int(getenv('TESTER_ID'))
+    TEST_MODE = int(getenv('TEST_MODE'))
 
 # bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 from bot_settings import bot,dp
@@ -317,6 +320,68 @@ def link_new_YT_channels(TG_channel_id, new_YT_channels, table_name='TRACKED_YT_
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
         return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+# This function is used for creating new user and for changing the user's details 
+def create_or_update_user(user_id, lang=None, balance=None, default=False, table_name='USERS'):
+    # Set default user config
+    if default:
+        lang = 'en'
+        balance = 0
+    
+    if user_id in [CREATOR_ID, TESTER_ID] and TEST_MODE==0: 
+        balance = 5000
+    
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        # Check if the user exists
+        cur.execute(f"""SELECT * FROM {table_name} WHERE user_id = {user_id}""")
+        user_row_postgres = cur.fetchall()
+        if len(user_row_postgres)==0:
+            cur.execute(f"""INSERT INTO {table_name} (user_id, lang, balance) VALUES ({user_id}, '{lang}', {balance});""")
+        else:
+            if default:
+                return True
+            if lang==None:
+                lang = user_row_postgres[0][1]
+            if balance==None:
+                balance = user_row_postgres[0][2]
+
+            cur.execute(f"""UPDATE {table_name} SET lang='{lang}', balance={balance} WHERE user_id = {user_id};""")
+
+        conn.commit()
+        return True
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_user_balance(user_id, table_name='USERS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        # Check if the user exists
+        cur.execute(f"""SELECT balance FROM {table_name} WHERE user_id = {user_id}""")
+        balance = cur.fetchall()[0][0]
+
+        return balance
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
     
     finally:
         cur.close()

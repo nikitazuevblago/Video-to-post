@@ -19,11 +19,12 @@ from callback_functions import *
 from bot_settings import bot,dp
 
 try:
-    from secret_key import YT_API_KEY, TEST_MODE, CREATOR_ID
+    from secret_key import YT_API_KEY, TEST_MODE, CREATOR_ID, TESTER_ID
 except:
     YT_API_KEY = getenv('YT_API_KEY')
     TEST_MODE = int(getenv('TEST_MODE'))
     CREATOR_ID = int(getenv('CREATOR_ID'))
+    TESTER_ID = int(getenv('TESTER_ID'))
 
 # @dp.message(CommandStart())
 # async def command_start_handler(message: Message) -> None:
@@ -250,8 +251,34 @@ async def get_group_id(message: Message):
         await message.reply("This command can only be used in a group or supergroup.")
 
 
+@dp.message(Command('balance'))
+async def get_group_id(message: Message):
+    user_id = message.from_user.id
+    create_or_update_user(user_id, default=True)
+    balance = get_user_balance(user_id)
+    await message.reply(f"You have {balance} tokens")
+
+
+@dp.message(Command('top_up'))
+async def get_group_id(message: Message):
+    user_id = message.from_user.id
+    create_or_update_user(user_id, default=True)
+
+    try:
+        amount = int(message.text.split()[1])
+    except:
+        message.reply(f'Enter the amount of tokens, no letters, no spaces!')
+        return False
+
+    create_or_update_user(user_id, balance=amount)
+    balance = get_user_balance(user_id)
+
+    await message.reply(f"You added {amount} tokens to the balance! Current balance is {balance}")
+
+
 @dp.message(Command("set_language"))
 async def set_language(message: Message):
+    create_or_update_user(message.from_user.id, default=True)
     # Create inline keyboard with language options
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text='Русский 🇷🇺', callback_data='ru')],
@@ -289,7 +316,6 @@ async def insert_yt_creators(message: Message):
     else:
         await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
     
-
 
 # Run the bot
 async def run_bot() -> None:

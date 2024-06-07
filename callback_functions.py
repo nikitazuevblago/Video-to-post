@@ -43,6 +43,9 @@ async def process_lang(callback_query: CallbackQuery):
     # Acknowledge the callback query to stop the "loading" state
     await callback_query.answer(cache_time=12)
 
+    # Edit the message to remove the inline keyboard
+    await callback_query.message.edit_reply_markup(reply_markup=None)
+
     # Set the default language for user in DB
     chosen_lang = callback_query.data
     user_id = callback_query.from_user.id # Use it for setting default language for user
@@ -52,8 +55,8 @@ async def process_lang(callback_query: CallbackQuery):
     elif chosen_lang=='en': 
         response_text = "Chosen language: English"
 
-    # Logic which interacts with DB....
-    #...
+    # Changes in DB
+    create_or_update_user(user_id, lang=chosen_lang)
 
     # Reply to the user to confirm the action
     await callback_query.message.reply(response_text)
