@@ -260,17 +260,20 @@ async def get_group_id(message: Message):
 
 
 @dp.message(Command('top_up'))
-async def get_group_id(message: Message):
+async def top_up_balance(message: Message):
     user_id = message.from_user.id
     create_or_update_user(user_id, default=True)
 
     try:
-        amount = int(message.text.split()[1])
+        message_parts = message.text.strip().split()
+        assert len(message_parts)==2
+        amount = int(message_parts[1])
     except:
-        message.reply(f'Enter the amount of tokens, no letters, no spaces!')
+        await message.reply('Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: "/top_up 100"')
         return False
 
     create_or_update_user(user_id, balance=amount)
+    add_new_transaction(user_id, amount)
     balance = get_user_balance(user_id)
 
     await message.reply(f"You added {amount} tokens to the balance! Current balance is {balance}")

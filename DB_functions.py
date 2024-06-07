@@ -189,7 +189,7 @@ def create_db():
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS TRANSACTIONS (
-                                transaction_id BIGINT PRIMARY KEY,
+                                transaction_id SERIAL PRIMARY KEY,
                                 user_id BIGINT,
                                 sum FLOAT,
                                 date TIMESTAMP
@@ -382,6 +382,31 @@ def get_user_balance(user_id, table_name='USERS'):
     
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def add_new_transaction(user_id, sum, table_name='TRANSACTIONS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        # SQL query to get the current timestamp in Moscow timezone
+        cur.execute("SELECT current_timestamp AT TIME ZONE 'Europe/Moscow';")
+        current_moscow_time = cur.fetchone()[0].strftime('%Y-%m-%d %H:%M:%S')
+
+        # CURRENT_TIMESTAMP will be current dependent on server's time!!! Railway default is OREGON, USA
+        cur.execute(f"""INSERT INTO {table_name} (user_id, sum, date) VALUES({user_id}, {sum}, '{current_moscow_time}');""")
+        conn.commit()
+        
+        return True
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        return False
     
     finally:
         cur.close()
