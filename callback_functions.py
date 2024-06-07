@@ -1,18 +1,14 @@
 from aiogram.types import CallbackQuery
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram import Bot
 from os import getenv
-try:
-    from secret_key import BOT_TOKEN
-except:
-    BOT_TOKEN = getenv('BOT_TOKEN')
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+from aiogram.types import Message
+from DB_functions import *
+from bot_settings import bot,dp
 
-
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 # FNs which process callbacks
-async def process_post_reaction(tg_channel_id, callback_query: CallbackQuery):
+async def process_post_reaction(callback_query: CallbackQuery): # Process post reaction and send to target TG_channel
     # Acknowledge the callback query to stop the "loading" state
     await callback_query.answer(cache_time=12)
 
@@ -24,15 +20,17 @@ async def process_post_reaction(tg_channel_id, callback_query: CallbackQuery):
     if action == 'approve':
         response_text = f"{user_name} approved the post."
         # Send the post from admin group to telegram channel
+        print(callback_query.chat_instance)
+        print(callback_query.message.chat.id)
         if callback_query.message.photo:
             await bot.send_photo(
-                tg_channel_id,
+                callback_query.message.chat.id, # WARNING - change to target TG_channel
                 photo=callback_query.message.photo[-1].file_id,  # Send the highest resolution photo
                 caption=callback_query.message.caption
             )
         else:
             await bot.send_message(
-                tg_channel_id,
+                callback_query.message.chat.id, # WARNING - change to target TG_channel
                 text=callback_query.message.text
             )
     elif action == 'disapprove':
@@ -60,3 +58,45 @@ async def process_lang(callback_query: CallbackQuery):
 
     # Reply to the user to confirm the action
     await callback_query.message.reply(response_text)
+
+
+# Sequential data gathering for /new_channels 
+# Define states
+class new_channels_FORM(StatesGroup):
+    new_YT_channels = State()
+
+
+async def process_new_channels(callback_query: CallbackQuery, state: FSMContext):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback_query.answer(cache_time=12)
+    
+    chosen_tg_channel_id, chosen_tg_channel_name  = callback_query.data.replace('new_channels_to_','').split('_AKA_')
+    # Save the chosen Telegram channel info in the state
+    await state.update_data(chosen_tg_channel_name=chosen_tg_channel_name)
+    await state.update_data(chosen_tg_channel_id=chosen_tg_channel_id)
+    
+    await state.set_state(new_channels_FORM.new_YT_channels)
+    await callback_query.message.reply(f'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"\nEnter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino')
+    current_state = await state.get_state()
+    print(f'current_state is {current_state}')
+    
+    
+# State handler for new_YT_channels
+@dp.message(new_channels_FORM.new_YT_channels)
+async def process_name(message: Message, state: FSMContext):
+    try:
+        new_YT_channels = message.text.split(',')
+    except:
+        print('Separate channels by comma! Try /new_channels again.')
+
+    data = await state.get_data()
+    response = link_new_YT_channels(data['chosen_tg_channel_id'], new_YT_channels)
+    if response:
+        response_text = f'The YT channels {new_YT_channels} have been linked to {data['chosen_tg_channel_name']}!'
+    else:
+        response_text = f'The YT channels {new_YT_channels} have NOT been linked to {data['chosen_tg_channel_name']}!'
+        
+    await message.reply(response_text)
+
+    # Finish conversation
+    await state.clear()

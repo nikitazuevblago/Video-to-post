@@ -1,10 +1,7 @@
 from os import getenv
 import psycopg2
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram import Bot
 try:
-    from secret_key import HOST, DBNAME, USER, PASSWORD, PORT, CREATOR_ID, BOT_TOKEN
+    from secret_key import HOST, DBNAME, USER, PASSWORD, PORT, CREATOR_ID
 except:
     BOT_TOKEN = getenv('BOT_TOKEN')
 
@@ -15,7 +12,9 @@ except:
     PASSWORD = getenv('POSTGRES_PASSWORD')
     PORT = int(getenv('PGPORT'))
 
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+# bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+from bot_settings import bot,dp
+
 
 DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
 
@@ -55,18 +54,11 @@ def get_tracked_channels(tg_channel_id, table_name='TRACKED_YT_CHANNELS'):
                             WHERE TG_CHANNEL_ID='{tg_channel_id}'
                         ;""")
             yt_channels_postgres = cur.fetchall()
-            tracked_yt_channels = {channel_tuple[0] for channel_tuple in yt_channels_postgres}
+            tracked_yt_channels = [channel_tuple[0] for channel_tuple in yt_channels_postgres]
             return tracked_yt_channels
         except psycopg2.errors.UndefinedTable:
             conn.rollback()
             bot.send_message(CREATOR_ID, f'[INFO] Table "{table_name}" does not exist...')
-            # cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-            #                 channel VARCHAR(255) PRIMARY KEY);""")
-            # default_channels = ['imangadzhi','noahkagan']
-            # for channel in default_channels:
-            #     cur.execute(f"""INSERT INTO {table_name} (channel) VALUES ('{channel}');""")
-            #     conn.commit()
-            # return default_channels
             raise ValueError(f'[INFO] Table "{table_name}" does not exist...')
             
 
@@ -234,6 +226,96 @@ def insert_new_project(project_name, admin_group_id, tg_channel_id, table_name='
         return False
 
     except psycopg2.errors.UndefinedColumn:
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def load_dummy_data():
+    # PROJECTS table
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        try:
+            cur.execute(f"""INSERT INTO PROJECTS (project_name, admin_group_id, TG_channel_id) VALUES ('test_project',-1002237753557,-1002169269607);""")
+            conn.commit()
+            return True
+        except psycopg2.errors.UndefinedTable:
+            conn.rollback()
+            print(f'[ERROR] Table PROJECTS does not exist!')
+            return False
+        
+        except psycopg2.errors.NumericValueOutOfRange:
+            conn.rollback()
+            print('[ERROR] Letters in BIGINT column!')
+            return False
+
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while load_dummy_data()')
+        return False
+
+    except psycopg2.errors.UndefinedColumn:
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_admin_group_ids():
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        # Check if the command /new_channels executes in admin_group
+        cur.execute("""SELECT admin_group_id FROM PROJECTS""")
+        admin_group_ids_postgres = cur.fetchall()
+        admin_group_ids = {channel_tuple[0] for channel_tuple in admin_group_ids_postgres}
+        return admin_group_ids
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while get_admin_group_ids()')
+        return {}
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_related_tg_channels(admin_group_id, table_name='PROJECTS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        cur.execute(f"""SELECT TG_CHANNEL_ID FROM {table_name} WHERE admin_group_id={admin_group_id}""")
+        related_tg_channels_ids_postgres = cur.fetchall()
+        if len(related_tg_channels_ids_postgres)>0:
+            related_tg_channels_ids = [row[0] for row in related_tg_channels_ids_postgres]
+            return related_tg_channels_ids
+        else:
+            return []
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while get_related_tg_channels()')
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+
+def link_new_YT_channels(TG_channel_id, new_YT_channels, table_name='TRACKED_YT_CHANNELS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        for new_YT_channel in new_YT_channels:
+            cur.execute(f"""INSERT INTO {table_name} (YT_channel_id, TG_channel_id) VALUES ('{new_YT_channel}',{TG_channel_id})""")
+            conn.commit()
+        return True
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
         return False
     
     finally:

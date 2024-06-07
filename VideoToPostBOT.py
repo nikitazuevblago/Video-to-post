@@ -5,35 +5,32 @@ import sys
 import re
 from os import getenv
 
-from aiogram import Bot, Dispatcher, Router
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import CommandStart, Command
 from aiogram.enums.chat_member_status import ChatMemberStatus
-from aiogram.types import Message
 import aiotube
 from pytube import Channel
-import psycopg2
 from VideoToPost import VideoToPost
 from DB_functions import *
 from callback_functions import *
 try:
-    from secret_key import BOT_TOKEN, YT_API_KEY, TEST_MODE, CREATOR_ID
+    from secret_key import YT_API_KEY, TEST_MODE, CREATOR_ID
 except:
-    BOT_TOKEN = getenv('BOT_TOKEN')
     YT_API_KEY = getenv('YT_API_KEY')
     TEST_MODE = int(getenv('TEST_MODE'))
     CREATOR_ID = int(getenv('CREATOR_ID'))
 
 
-# All handlers should be attached to the Dispatcher (or Router)
-dp = Dispatcher()
-#router = Router()
-#dp.include_router(router)
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+# # All handlers should be attached to the Dispatcher (or Router)
+# storage = MemoryStorage()
+# dp = Dispatcher(storage=storage)
+# #router = Router()
+# #dp.include_router(router)
+# bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+from bot_settings import bot,dp
 
 
 @dp.message(CommandStart())
@@ -54,7 +51,7 @@ def parse_duration(duration):
     return total_seconds
 
 
-async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels, yt_api=False):
+async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels, yt_api=False, min_duration=60, max_duration=5000):
     new_latest_videos = set() # creator:video_url
     bad_creators = set()
 
@@ -78,10 +75,10 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                 video_duration = parse_duration(video_duration)
 
                 # Check if it's a shorts or regular youtube video
-                if video_duration>60 and video_duration<1200:
+                if video_duration>min_duration and video_duration<max_duration:
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
-                elif video_duration<60:
+                elif video_duration<min_duration:
                     await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
                 else:
                     await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
@@ -98,10 +95,10 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                 video_id = aiotube.Channel(channel_with_at).last_uploaded()
                 video_duration = int(aiotube.Video(video_id).metadata['duration'])
                 # Check if it's a shorts or regular youtube video
-                if video_duration>60 and video_duration<1200:
+                if video_duration>min_duration and video_duration<max_duration:
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
-                elif video_duration<60:
+                elif video_duration<min_duration:
                     await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
                 else:
                     await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
@@ -235,12 +232,13 @@ async def process_name(message: Message, state: FSMContext):
     except:
         response = False
 
+    chat_id = message.chat.id
     if response:
-        chat_id = message.chat.id
-        await bot.send_message(chat_id, f"[INFO] The project {data['project_name']} has been created!...")
+        responst_text = f"[INFO] The project {data['project_name']} has been created!..."
     else:
-        chat_id = message.chat.id
-        await bot.send_message(chat_id, f"The new project HASN'T been created!\nP.s. The frequent error - letters in 'Admin group id' or 'TG channel id'")
+        responst_text = f"The new project HASN'T been created!\nP.s. The frequent error - letters in 'Admin group id' or 'TG channel id'"
+    
+    await bot.send_message(chat_id, responst_text)
 
     # Finish conversation
     await state.clear()
@@ -270,73 +268,29 @@ async def set_language(message: Message):
 
 
 @dp.message(Command("new_channels"))
-async def insert_yt_creators(message: Message, table_name='TRACKED_YT_CHANNELS'):
-    try:
-        '''# Extract the channels from the message text
-        # channels = message.text.split(' ', 1)[1]
-
-        # Remove any extra spaces and split the channel names by comma
-        # new_channels = [channel.strip() for channel in channels.split(',')] # WARNING: MAKE THE SEQUENTIAL DATA GATHERING AS IN /create_project'''
-
-        # Establish db connection
-        conn = psycopg2.connect(**DB_config)
-        cur = conn.cursor()
-
-        # Check if the command /new_channels executes in admin_group
-        cur.execute("""SELECT admin_group_id FROM PROJECTS""")
-        admin_group_ids_postgres = cur.fetchall()
-        admin_group_ids = {channel_tuple[0] for channel_tuple in admin_group_ids_postgres}
-        if message.chat.id in admin_group_ids:
-            chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
-            if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}: # WARNING: is channel owner admin by default??
-                cur.execute(f"""SELECT TG_CHANNEL_ID FROM PROJECTS WHERE admin_group_id={message.chat.id}""")
-                related_tg_channels_ids_postgres = cur.fetchall()
-                if len(related_tg_channels_ids_postgres)>0:
-                    related_tg_channels_ids = [row[0] for row in related_tg_channels_ids_postgres]
+async def insert_yt_creators(message: Message):
+    admin_group_ids = get_admin_group_ids()
+    if message.chat.id in admin_group_ids:
+        chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
+        if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}: # WARNING: is channel owner admin by default??
+            related_tg_channels_ids = get_related_tg_channels(admin_group_id=message.chat.id)
+            if len(related_tg_channels_ids)>0:
+                # Create keyboard and add buttons dynamically
+                builder = InlineKeyboardBuilder()
+                for related_tg_channel_id in related_tg_channels_ids:
+                    channel_info = await bot.get_chat(related_tg_channel_id)
+                    channel_name = channel_info.title
+                    builder.button(text=channel_name, callback_data=f'new_channels_to_{related_tg_channel_id}_AKA_{channel_name}')
                     
-                    # Create keyboard and add buttons dynamically
-                    markup = InlineKeyboardMarkup(resize_keyboard=True)
-                    id_to_name = {}
-                    for related_tg_channel_id in related_tg_channels_ids:
-                        channel_name = await bot.get_chat(related_tg_channel_id)
-                        markup.add(InlineKeyboardButton(channel_name))
-                        id_to_name[channel_name] = related_tg_channel_id
-                        
-                    await bot.send_message(message.chat.id, f'Pick to which TG channel attach new YT channels', reply_markup=markup)
+                await bot.send_message(message.chat.id, f'Pick to which TG channel attach new YT channels', reply_markup=builder.as_markup())
 
-                    # for channel in new_channels:
-                    #     try:
-                    #         cur.execute(f"""INSERT INTO {table_name} (YT_channel_id, TG_channel_id) VALUES ('{channel}', {TG_channel_id});""")
-                    #         conn.commit()
-                    #         await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
-                    #     except psycopg2.errors.UniqueViolation:
-                    #         conn.rollback()
-                    #         await bot.send_message(message.chat.id, f'[INFO] Channel {channel} already exists in the project!')
-                    #     except psycopg2.errors.UndefinedTable:
-                    #         conn.rollback()
-                    #         '''
-                    #         # await bot.send_message(message.chat.id, f'[INFO] Table "{table_name}" does not exist, creating one...')
-                    #         # cur.execute(f"""CREATE TABLE IF NOT EXISTS {table_name} (
-                    #         #                 channel VARCHAR(255) PRIMARY KEY);""")
-                    #         # cur.execute(f"""INSERT INTO {table_name} (YT_channel_id) VALUES ('{channel}');""")
-                    #         # conn.commit()
-                    #         # await bot.send_message(message.chat.id, f'[INFO] Channels {new_channels} have been added to DB by {message.from_user.full_name}!')
-                    #         '''
-                else:
-                    await bot.send_message(message.chat.id, f'No TG channels attached to admin group with id {message.chat.id}!')
             else:
-                await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+                await bot.send_message(message.chat.id, f'No TG channels attached to admin group with id {message.chat.id}!')
         else:
-            await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
-    except IndexError:
-        # WARNING - RESPONSE BASED ON LANG
-        # If the command is used incorrectly, send an error message
-        await message.reply("Please use the correct format: /new_channels channel1,channel2")
-    except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while insert_new_yt_creators()')
-    finally:
-        cur.close()
-        conn.close()
+            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+    else:
+        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
+    
 
 
 # Run the bot
@@ -347,12 +301,16 @@ async def run_bot() -> None:
     # Create tables if not exist
     create_db()
 
+    if TEST_MODE==1:
+        load_dummy_data()
+
     # Set menu for tg bot
     await set_help_menu()
 
     # Register handlers
     dp.callback_query.register(process_post_reaction, lambda c: c.data in ['approve', 'disapprove'])
     dp.callback_query.register(process_lang, lambda c: c.data in ['ru', 'en'])
+    dp.callback_query.register(process_new_channels, lambda c: c.data.startswith('new_channels_to_'))
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())
