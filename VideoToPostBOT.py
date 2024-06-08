@@ -9,6 +9,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.enums.parse_mode import ParseMode
 from aiogram.filters import CommandStart, Command
 from aiogram.enums.chat_member_status import ChatMemberStatus
 import aiotube
@@ -180,9 +181,10 @@ async def set_help_menu():
         BotCommand(command="/help", description="Get instructions on how to use the bot"),
         BotCommand(command="/new_channels", description="Track new YouTube channels to get posts automatically"),
         BotCommand(command="/process_video_url", description="Convert a YouTube video URL into telegram post manually"),
-        BotCommand(command="/settings", description="Configure bot settings"), # post settings, post destination(maybe later create post_destinations)
+        BotCommand(command="/post_config", description="Post settings aimed on certain TG channel"),
         BotCommand(command="/top_up", description="Top up your balance"),
         BotCommand(command="/balance", description="Check balance"),
+        BotCommand(command="/check_transactions", description="Get the table with your previous transactions"),
         BotCommand(command="/support", description="Contact the creator"),
         BotCommand(command="/create_project", description="Project is a combo of (name,admin_group,tg_channel)"),
         BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id")
@@ -190,30 +192,51 @@ async def set_help_menu():
     await bot.set_my_commands(commands)
 
 
+
+# WARNING: MOVE TO callback_functions and make it complete!!
+# # Sequential data gathering for /post_config 
+# # Define states
+# class post_config_FORM(StatesGroup):
+#     TG_channel_id = State()
+#     lang = State()
+#     reference_creator = State()
+
+
+@dp.message(Command('post_config'))
+async def post_config(message: Message):
+    chat_id = message.chat.id
+    if chat_id in get_admin_group_ids():
+        chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
+        if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+            related_tg_channels_ids = get_related_tg_channels(admin_group_id=message.chat.id)
+            builder = InlineKeyboardBuilder()
+            for related_tg_channel_id in related_tg_channels_ids:
+                channel_info = await bot.get_chat(related_tg_channel_id)
+                channel_name = channel_info.title
+                builder.button(text=channel_name, callback_data=f'config_to_{related_tg_channel_id}_AKA_{channel_name}')
+            await bot.send_message(message.chat.id, f"Pick which channel's config to change", reply_markup=builder.as_markup())
+        else:
+            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+    else:
+        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
+
+
+
 # Sequential data gathering for /create_project 
 # Define states
 class create_project_FORM(StatesGroup):
-    project_name = State()
     admin_group_id = State()
     tg_channel_id = State()
 
 @dp.message(Command('create_project'))
 async def create_project(message: Message, state: FSMContext):
-    await state.set_state(create_project_FORM.project_name)
-    await message.reply("Project name")
-
-
-# State handler for project_name
-@dp.message(create_project_FORM.project_name)
-async def process_name(message: Message, state: FSMContext):
-    await state.update_data(project_name=message.text)
     await state.set_state(create_project_FORM.admin_group_id)
     await message.reply("Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS)")
 
 
 # State handler for admin_group_id
 @dp.message(create_project_FORM.admin_group_id)
-async def process_name(message: Message, state: FSMContext):
+async def process_admin_group(message: Message, state: FSMContext):
     await state.update_data(admin_group_id=message.text)
     await state.set_state(create_project_FORM.tg_channel_id)
     await message.reply("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg channel for viewers)")
@@ -221,19 +244,21 @@ async def process_name(message: Message, state: FSMContext):
 
 # State handler for tg_channel_id
 @dp.message(create_project_FORM.tg_channel_id)
-async def process_name(message: Message, state: FSMContext):
+async def process_tg_channel(message: Message, state: FSMContext):
     await state.update_data(tg_channel_id=message.text)
     data = await state.get_data()
 
     # Changes in DB
     try:
-        response = insert_new_project(data['project_name'], int(data['admin_group_id']), int(data['tg_channel_id']))
+        channel_info = await bot.get_chat(int(data['tg_channel_id']))
+        channel_name = channel_info.title
+        response = insert_new_project(channel_name, int(data['admin_group_id']), int(data['tg_channel_id']))
     except:
         response = False
 
     chat_id = message.chat.id
     if response:
-        responst_text = f"[INFO] The project {data['project_name']} has been created!..."
+        responst_text = f"[INFO] The project {channel_name} has been created!..."
     else:
         responst_text = f"The new project HASN'T been created!\nP.s. The frequent error - letters in 'Admin group id' or 'TG channel id'"
     
@@ -252,7 +277,7 @@ async def get_group_id(message: Message):
 
 
 @dp.message(Command('balance'))
-async def get_group_id(message: Message):
+async def get_balance(message: Message):
     user_id = message.from_user.id
     create_or_update_user(user_id, default=True)
     balance = get_user_balance(user_id)
@@ -279,6 +304,17 @@ async def top_up_balance(message: Message):
     await message.reply(f"You added {amount} tokens to the balance! Current balance is {balance}")
 
 
+@dp.message(Command('check_transactions'))
+async def check_transactions(message: Message):
+    user_id = message.from_user.id
+    create_or_update_user(user_id, default=True)
+
+    transactions_table = get_user_transactions(message.from_user.id)
+
+    # Send the table to the user
+    await message.reply(transactions_table, parse_mode=ParseMode.MARKDOWN)
+
+
 @dp.message(Command("set_language"))
 async def set_language(message: Message):
     create_or_update_user(message.from_user.id, default=True)
@@ -296,11 +332,11 @@ async def set_language(message: Message):
 
 
 @dp.message(Command("new_channels"))
-async def insert_yt_creators(message: Message):
+async def new_channels(message: Message):
     admin_group_ids = get_admin_group_ids()
     if message.chat.id in admin_group_ids:
         chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
-        if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}: # WARNING: is channel owner admin by default??
+        if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
             related_tg_channels_ids = get_related_tg_channels(admin_group_id=message.chat.id)
             if len(related_tg_channels_ids)>0:
                 # Create keyboard and add buttons dynamically

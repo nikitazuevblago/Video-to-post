@@ -1,5 +1,7 @@
 from os import getenv
 import psycopg2
+import pandas as pd
+from tabulate import tabulate
 try:
     from secret_key import HOST, DBNAME, USER, PASSWORD, PORT, CREATOR_ID, TESTER_ID, TEST_MODE
 except:
@@ -164,15 +166,18 @@ def create_db():
         cur.execute(f"""CREATE TABLE IF NOT EXISTS USED_VIDEO_URLS (
                                 video_url VARCHAR(255) PRIMARY KEY);""")
         conn.commit()
-        # cur.execute(f"""CREATE TABLE IF NOT EXISTS PROJECT_ADMINS (
-        #                     TG_channel_id BIGINT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
-        #                     user_id BIGINT REFERENCES USERS(user_id) ON DELETE CASCADE,       
-        #             );""")
+        
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS PROJECTS (
-                            project_name VARCHAR(25) UNIQUE,
+                            TG_channel_name VARCHAR(25) UNIQUE,
                             admin_group_id BIGINT,
                             TG_channel_id BIGINT PRIMARY KEY);""")
+        conn.commit()
+
+        cur.execute(f"""CREATE TABLE IF NOT EXISTS POST_CONFIG (
+                            TG_channel_id BIGINT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
+                            lang VARCHAR(5),
+                            reference_creator BOOLEAN);""")
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS TRACKED_YT_CHANNELS (
@@ -205,13 +210,13 @@ def create_db():
         conn.close()
 
 
-def insert_new_project(project_name, admin_group_id, tg_channel_id, table_name='PROJECTS'):
+def insert_new_project(TG_channel_name, admin_group_id, tg_channel_id, table_name='PROJECTS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
         try:
-            cur.execute(f"""INSERT INTO {table_name} (project_name, admin_group_id, TG_channel_id) VALUES ('{project_name}',{admin_group_id},{tg_channel_id});""")
+            cur.execute(f"""INSERT INTO {table_name} (TG_channel_name, admin_group_id, TG_channel_id) VALUES ('{TG_channel_name}',{admin_group_id},{tg_channel_id});""")
             conn.commit()
             return True
         except psycopg2.errors.UndefinedTable:
@@ -243,7 +248,7 @@ def load_dummy_data():
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
         try:
-            cur.execute(f"""INSERT INTO PROJECTS (project_name, admin_group_id, TG_channel_id) VALUES ('test_project',-1002237753557,-1002169269607);""")
+            cur.execute(f"""INSERT INTO PROJECTS (TG_channel_name, admin_group_id, TG_channel_id) VALUES ('Become a Millionaire',-1002237753557,-1002169269607);""")
             conn.commit()
             return True
         except psycopg2.errors.UndefinedTable:
@@ -403,6 +408,31 @@ def add_new_transaction(user_id, sum, table_name='TRANSACTIONS'):
         conn.commit()
         
         return True
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_user_transactions(user_id):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        # CURRENT_TIMESTAMP will be current dependent on server's time!!! Railway default is OREGON, USA
+        cur.execute(f"""SELECT * FROM TRANSACTIONS WHERE user_id = {user_id};""")
+        user_transactions_postgres = cur.fetchall()
+        if len(user_transactions_postgres)>0:
+            user_transactions_table = pd.DataFrame(user_transactions_postgres,columns=['transaction_id','user_id','sum','date'])
+            str_table = tabulate(user_transactions_table, headers='keys', tablefmt='pipe')
+            return f"```\n{str_table}\n```"
+        else:
+            return "You don't any transactions yet!"
     
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while create_new_user()')
