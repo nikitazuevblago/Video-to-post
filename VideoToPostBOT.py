@@ -5,7 +5,6 @@ import sys
 import re
 from os import getenv
 
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -17,6 +16,7 @@ from pytube import Channel
 from VideoToPost import VideoToPost
 from DB_functions import *
 from callback_functions import *
+from fsm_states import *
 from bot_settings import bot,dp
 
 try:
@@ -194,10 +194,6 @@ async def set_help_menu():
     await bot.set_my_commands(commands)
 
 
-# Sequential data gathering for /video_to_post 
-# Define states
-class video_to_post_FORM(StatesGroup):
-    tg_channel_id = State()
 
 # ADD VIDEO_URL TO USED_VIDEO_URLS!!
 @dp.message(Command('video_to_post'))
@@ -233,38 +229,6 @@ async def video_to_post(message:Message, state:FSMContext):
         await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')  
 
 
-# State handler for tg_channel_id WARNING WARNING WARNING - PUT TO callback_functions.py, IS it possible because of video_to_post_FORM?? PUT ALL FORMS to different file!
-@dp.message(video_to_post_FORM.tg_channel_id)
-async def process_manual_VTP(callback:CallbackQuery, state:FSMContext):
-    TG_channel_id = callback.data.replace('vtp_','')
-
-    # Edit the message to remove the inline keyboard
-    await callback.message.edit_reply_markup(reply_markup=None)
-
-    data = await state.get_data()
-
-    try:
-        post_name, post_dict = VideoToPost(data['yt_link'], img=True) 
-    except ValueError as e:
-        raise ValueError(e)
-    except:
-        print(f'ERROR: video url did not pass VideoToPost "{data['yt_link']}"')
-    
-    # Create inline keyboard with approve and disapprove buttons
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='Approve', callback_data=f'post_approve_to_{TG_channel_id}')],
-        [InlineKeyboardButton(text='Disapprove', callback_data=f'post_disapprove')]])
-
-    if 'post_img' in post_dict.keys():
-        # Send image with a caption
-        await bot.send_photo(
-                data['admin_group_id'], 
-                BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
-                caption=post_dict['post_txt'], reply_markup=keyboard)
-    else:
-        await bot.send_message(data['admin_group_id'], post_dict['post_txt'], reply_markup=keyboard)
-
-
 @dp.message(Command('post_config'))
 async def post_config(message: Message):
     chat_id = message.chat.id
@@ -284,20 +248,13 @@ async def post_config(message: Message):
         await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
 
 
-
-# Sequential data gathering for /create_project 
-# Define states
-class create_project_FORM(StatesGroup):
-    admin_group_id = State()
-    tg_channel_id = State()
-
 @dp.message(Command('create_project'))
 async def create_project(message: Message, state: FSMContext):
     await state.set_state(create_project_FORM.admin_group_id)
     await message.reply("Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS)")
 
 
-# State handler for admin_group_id
+# State handler
 @dp.message(create_project_FORM.admin_group_id)
 async def process_admin_group(message: Message, state: FSMContext):
     await state.update_data(admin_group_id=message.text)
@@ -305,7 +262,7 @@ async def process_admin_group(message: Message, state: FSMContext):
     await message.reply("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg channel for viewers)")
 
 
-# State handler for tg_channel_id
+# State handler
 @dp.message(create_project_FORM.tg_channel_id)
 async def process_tg_channel(message: Message, state: FSMContext):
     await state.update_data(tg_channel_id=message.text)

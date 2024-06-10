@@ -4,6 +4,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 from DB_functions import *
+from fsm_states import *
 from bot_settings import bot,dp
 from VideoToPost import VideoToPost
 
@@ -64,11 +65,6 @@ async def process_lang(callback_query: CallbackQuery):
 
 
 # Sequential data gathering for /new_channels 
-# Define states
-class new_channels_FORM(StatesGroup):
-    new_YT_channels = State()
-
-
 async def process_new_channels(callback_query: CallbackQuery, state: FSMContext):
     # Acknowledge the callback query to stop the "loading" state
     await callback_query.answer(cache_time=12)
@@ -164,3 +160,38 @@ async def process_full_config(callback:CallbackQuery):
         response_text = "Config has NOT been changed!"
 
     await callback.message.reply(response_text)
+
+
+@dp.message(video_to_post_FORM.tg_channel_id)
+async def process_manual_VTP(callback:CallbackQuery, state:FSMContext):
+    try:
+        TG_channel_id = callback.data.replace('vtp_','')
+
+        # Edit the message to remove the inline keyboard
+        await callback.message.edit_reply_markup(reply_markup=None)
+
+        data = await state.get_data()
+
+        try:
+            post_name, post_dict = VideoToPost(data['yt_link'], img=True) 
+        except ValueError as e:
+            raise ValueError(e)
+        except:
+            print(f'ERROR: video url did not pass VideoToPost "{data['yt_link']}"')
+        
+        # Create inline keyboard with approve and disapprove buttons
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text='Approve', callback_data=f'post_approve_to_{TG_channel_id}')],
+            [InlineKeyboardButton(text='Disapprove', callback_data=f'post_disapprove')]])
+
+        if 'post_img' in post_dict.keys():
+            # Send image with a caption
+            await bot.send_photo(
+                    data['admin_group_id'], 
+                    BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
+                    caption=post_dict['post_txt'], reply_markup=keyboard)
+        else:
+            await bot.send_message(data['admin_group_id'], post_dict['post_txt'], reply_markup=keyboard)
+    finally:
+        # Finish conversation
+        await state.clear()
