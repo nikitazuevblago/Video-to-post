@@ -185,21 +185,12 @@ async def set_help_menu():
         BotCommand(command="/top_up", description="Top up your balance"),
         BotCommand(command="/balance", description="Check balance"),
         BotCommand(command="/check_transactions", description="Get the table with your previous transactions"),
+        BotCommand(command="/check_projects", description="Get linked to admin group TG channels"),
         BotCommand(command="/support", description="Contact the creator"),
         BotCommand(command="/create_project", description="Project is a combo of (name,admin_group,tg_channel)"),
         BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id")
     ]
     await bot.set_my_commands(commands)
-
-
-
-# WARNING: MOVE TO callback_functions and make it complete!!
-# # Sequential data gathering for /post_config 
-# # Define states
-# class post_config_FORM(StatesGroup):
-#     TG_channel_id = State()
-#     lang = State()
-#     reference_creator = State()
 
 
 @dp.message(Command('post_config'))
@@ -258,11 +249,12 @@ async def process_tg_channel(message: Message, state: FSMContext):
 
     chat_id = message.chat.id
     if response:
-        responst_text = f"[INFO] The project {channel_name} has been created!..."
+        response_text = f"[INFO] The project {channel_name} has been created!..."
+        create_or_update_config(data['tg_channel_id'], default=True)
     else:
-        responst_text = f"The new project HASN'T been created!\nP.s. The frequent error - letters in 'Admin group id' or 'TG channel id'"
+        response_text = f"The new project HASN'T been created!\nP.s. Frequent errors - 1. Project already exists (/check_projects) 2. Letters in 'Admin group id' or 'TG channel id'"
     
-    await bot.send_message(chat_id, responst_text)
+    await bot.send_message(chat_id, response_text)
 
     # Finish conversation
     await state.clear()
@@ -313,6 +305,24 @@ async def check_transactions(message: Message):
 
     # Send the table to the user
     await message.reply(transactions_table, parse_mode=ParseMode.MARKDOWN)
+
+
+@dp.message(Command('check_projects'))
+async def check_projects(message: Message):
+    chat_id = message.chat.id
+    if chat_id in get_admin_group_ids():
+        chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
+        if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+            # Interaction with DB
+            project_names = get_projects(chat_id)
+            if len(project_names)>0:
+                response_text = f'This admin group is linked to these projects {project_names}'
+            await message.reply(response_text)
+            
+        else:
+            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+    else:
+        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
 
 
 @dp.message(Command("set_language"))
@@ -374,6 +384,9 @@ async def run_bot() -> None:
     dp.callback_query.register(process_post_reaction, lambda c: c.data.startswith('post_'))
     dp.callback_query.register(process_lang, lambda c: c.data in ['ru', 'en'])
     dp.callback_query.register(process_new_channels, lambda c: c.data.startswith('new_channels_to_'))
+    dp.callback_query.register(process_config, lambda c: c.data.startswith('config_to_'))
+    dp.callback_query.register(process_config_lang, lambda c: c.data.startswith('config_lang'))
+    dp.callback_query.register(process_full_config, lambda c: c.data.startswith('full_config'))
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())

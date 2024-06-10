@@ -1,5 +1,6 @@
 from aiogram.types import CallbackQuery
 from os import getenv
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
@@ -72,18 +73,17 @@ async def process_new_channels(callback_query: CallbackQuery, state: FSMContext)
     # Acknowledge the callback query to stop the "loading" state
     await callback_query.answer(cache_time=12)
     
-    chosen_tg_channel_id, chosen_tg_channel_name  = callback_query.data.replace('new_channels_to_','').split('_AKA_')
     # Save the chosen Telegram channel info in the state
+    chosen_tg_channel_id, chosen_tg_channel_name  = callback_query.data.replace('new_channels_to_','').split('_AKA_')
     await state.update_data(chosen_tg_channel_name=chosen_tg_channel_name)
     await state.update_data(chosen_tg_channel_id=chosen_tg_channel_id)
-    
-    await state.set_state(new_channels_FORM.new_YT_channels)
 
     # Edit the message to remove the inline keyboard
     await callback_query.message.edit_reply_markup(reply_markup=None)
 
-    await callback_query.message.reply(f'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"\nEnter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino')
-    
+    await callback_query.message.reply(f'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"')
+    await state.set_state(new_channels_FORM.new_YT_channels)
+    await callback_query.message.reply(f'Enter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino')
     
 # State handler for new_YT_channels
 @dp.message(new_channels_FORM.new_YT_channels)
@@ -104,3 +104,63 @@ async def process_name(message: Message, state: FSMContext):
 
     # Finish conversation
     await state.clear()
+
+
+async def process_config(callback:CallbackQuery):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback.answer(cache_time=12)
+
+    # Get the data from callback
+    tg_channel_id, tg_channel_name = callback.data.replace('config_to_','').split('_AKA_')
+
+    # Edit the message to remove the inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    
+    callback.message.reply(f'Linking the new config to {tg_channel_name}')
+
+    # Define keyboard for name choices
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text='Русский 🇷🇺', callback_data=f'config_lang_ru_{tg_channel_id}')],
+                    [InlineKeyboardButton(text='English 🇺🇸', callback_data=f'config_lang_en_{tg_channel_id}')]])
+    
+    await callback.message.reply("Choose the language of posts", reply_markup=keyboard)
+
+
+async def process_config_lang(callback:CallbackQuery):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback.answer(cache_time=12)
+
+    # Edit the message to remove the inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    # Get the data from callback
+    config_lang, tg_channel_id = callback.data.replace('config_lang_','').split('_')
+
+    # Define keyboard for name choices
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text='Yes', callback_data=f'full_config_{config_lang}_yes_{tg_channel_id}')],
+                    [InlineKeyboardButton(text='No', callback_data=f'full_config_{config_lang}_no_{tg_channel_id}')]])
+
+    await callback.message.reply("Choose whether to reference the YT author", reply_markup=keyboard)
+
+
+async def process_full_config(callback:CallbackQuery):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback.answer(cache_time=12)
+
+    # Edit the message to remove the inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    # Get the data from callback
+    config_lang, config_reference, tg_channel_id = callback.data.replace('full_config_','').split('_')
+
+    # Interaction with DB
+    response = create_or_update_config(tg_channel_id, lang=config_lang, reference=config_reference)
+
+    if response:
+        response_text = "Config has been changed!"
+    else:
+        response_text = "Config has NOT been changed!"
+
+    await callback.message.reply(response_text)

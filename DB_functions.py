@@ -141,7 +141,7 @@ def clear_up_db():
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
-        tables_to_drop = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS','PROJECT_ADMINS','PROJECTS','TRANSACTIONS','USERS']
+        tables_to_drop = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS','PROJECT_ADMINS','TRANSACTIONS','USERS','POST_CONFIG','PROJECTS']
         for table in tables_to_drop:
             try:
                 cur.execute(f"""DROP TABLE {table};""")
@@ -162,7 +162,6 @@ def create_db():
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
-        #tables_to_create = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS','PROJECT_ADMINS','PROJECTS','TRANSACTIONS','USERS']
         cur.execute(f"""CREATE TABLE IF NOT EXISTS USED_VIDEO_URLS (
                                 video_url VARCHAR(255) PRIMARY KEY);""")
         conn.commit()
@@ -227,6 +226,11 @@ def insert_new_project(TG_channel_name, admin_group_id, tg_channel_id, table_nam
         except psycopg2.errors.NumericValueOutOfRange:
             conn.rollback()
             print('[ERROR] Letters in BIGINT column!')
+            return False
+        
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            print(f'[ERROR] Project with id "{tg_channel_id}" already exists!')
             return False
 
     except psycopg2.errors.OperationalError:
@@ -432,7 +436,75 @@ def get_user_transactions(user_id):
             str_table = tabulate(user_transactions_table, headers='keys', tablefmt='pipe')
             return f"```\n{str_table}\n```"
         else:
-            return "You don't any transactions yet!"
+            return "You don't have any transactions yet!"
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def create_or_update_config(TG_channel_id, lang=None, reference=None, default=False, table_name='POST_CONFIG'):
+
+    # Set default user config
+    if default:
+        lang = 'en'
+        reference = 'no'
+
+    if reference == 'yes':
+        reference = 'TRUE'
+    else:
+        reference = 'FALSE'
+
+
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+        
+        # Check if the user exists
+        cur.execute(f"""SELECT * FROM {table_name} WHERE TG_channel_id = {TG_channel_id}""")
+        tg_config_row = cur.fetchall()
+        if len(tg_config_row)==0:
+            cur.execute(f"""INSERT INTO {table_name} (TG_channel_id, lang, reference_creator) VALUES ({TG_channel_id}, '{lang}', {reference});""")
+        else:
+            if default:
+                return True
+            if lang==None:
+                lang = tg_config_row[0][1]
+            if reference==None:
+                reference = tg_config_row[0][2]
+
+            cur.execute(f"""UPDATE {table_name} SET lang='{lang}', reference={reference} WHERE TG_channel_id = {TG_channel_id};""")
+
+        conn.commit()
+        return True
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_or_update_config()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_projects(admin_group_id, table_name='PROJECTS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        cur.execute(f"""SELECT tg_channel_name FROM {table_name} WHERE admin_group_id = {admin_group_id};""")
+        linked_projects_postgres = cur.fetchall()
+        if len(linked_projects_postgres)>0:
+           linked_projects = [row[0] for row in linked_projects_postgres]
+           return linked_projects
+        else:
+            return []
     
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while create_new_user()')
