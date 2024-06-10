@@ -112,7 +112,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=120, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
@@ -188,9 +188,81 @@ async def set_help_menu():
         BotCommand(command="/check_projects", description="Get linked to admin group TG channels"),
         BotCommand(command="/support", description="Contact the creator"),
         BotCommand(command="/create_project", description="Project is a combo of (name,admin_group,tg_channel)"),
-        BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id")
+        BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id"),
+        BotCommand(command="/video_to_post", description="Manually get the tg post from YT video")
     ]
     await bot.set_my_commands(commands)
+
+
+# Sequential data gathering for /video_to_post 
+# Define states
+class video_to_post_FORM(StatesGroup):
+    tg_channel_id = State()
+
+# ADD VIDEO_URL TO USED_VIDEO_URLS!!
+@dp.message(Command('video_to_post'))
+async def video_to_post(message:Message, state:FSMContext):
+    try:
+        message_parts = message.text.strip().split()
+        assert len(message_parts)==2
+        yt_link = message_parts[1]
+    except:
+        await message.reply('Enter the command with link without nothing else!\nExample: "/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"')
+        return False
+    chat_id = message.chat.id
+    if chat_id in get_admin_group_ids():
+        chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
+        if chat_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+            related_tg_channels_ids = get_related_tg_channels(chat_id)
+            if len(related_tg_channels_ids)>0:
+                builder = InlineKeyboardBuilder()
+                for related_tg_channel_id in related_tg_channels_ids:
+                    channel_info = await bot.get_chat(related_tg_channel_id)
+                    channel_name = channel_info.title
+                    builder.button(text=channel_name, callback_data=f'vtp_{related_tg_channel_id}')
+                
+                await state.update_data(admin_group_id=chat_id)
+                await state.update_data(yt_link=yt_link)
+                await state.set_state(video_to_post_FORM.tg_channel_id)
+                await message.reply(f'Select the Telegram channel where you want to send the post', reply_markup=builder.as_markup())
+            else:
+                await bot.send_message(message.chat.id, f'[ERROR] First create the project with /create_project!')
+        else:
+            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+    else:
+        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')  
+
+
+# State handler for tg_channel_id WARNING WARNING WARNING - PUT TO callback_functions.py, IS it possible because of video_to_post_FORM?? PUT ALL FORMS to different file!
+@dp.message(video_to_post_FORM.tg_channel_id)
+async def process_manual_VTP(callback:CallbackQuery, state:FSMContext):
+    TG_channel_id = callback.data.replace('vtp_','')
+
+    # Edit the message to remove the inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    data = await state.get_data()
+
+    try:
+        post_name, post_dict = VideoToPost(data['yt_link'], img=True) 
+    except ValueError as e:
+        raise ValueError(e)
+    except:
+        print(f'ERROR: video url did not pass VideoToPost "{data['yt_link']}"')
+    
+    # Create inline keyboard with approve and disapprove buttons
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text='Approve', callback_data=f'post_approve_to_{TG_channel_id}')],
+        [InlineKeyboardButton(text='Disapprove', callback_data=f'post_disapprove')]])
+
+    if 'post_img' in post_dict.keys():
+        # Send image with a caption
+        await bot.send_photo(
+                data['admin_group_id'], 
+                BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
+                caption=post_dict['post_txt'], reply_markup=keyboard)
+    else:
+        await bot.send_message(data['admin_group_id'], post_dict['post_txt'], reply_markup=keyboard)
 
 
 @dp.message(Command('post_config'))
@@ -387,6 +459,7 @@ async def run_bot() -> None:
     dp.callback_query.register(process_config, lambda c: c.data.startswith('config_to_'))
     dp.callback_query.register(process_config_lang, lambda c: c.data.startswith('config_lang'))
     dp.callback_query.register(process_full_config, lambda c: c.data.startswith('full_config'))
+    dp.callback_query.register(process_manual_VTP, lambda c: c.data.startswith('vtp'))
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())

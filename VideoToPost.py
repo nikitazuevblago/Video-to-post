@@ -153,7 +153,7 @@ def get_post_img(yt, thumbnail=True):
 
 
 # MainFunction
-def VideoToPost(link, img=False):
+def VideoToPost(link, lang='en', reference='no', img=False): # WARNING: include the language,reference logic a bit later
     yt = YouTube(link)
     yt.bypass_age_gate()
     post_name = yt.title + ' (' + yt.author + ')'
