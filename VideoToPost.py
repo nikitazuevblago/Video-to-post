@@ -26,21 +26,67 @@ import json
 import requests
 from PIL import Image
 from io import BytesIO
+import pytube.exceptions as exceptions
+from pytube.innertube import InnerTube
 import warnings
 warnings.filterwarnings('ignore')
 
+# Create a subclass of YouTube
+class MyYouTube(YouTube):
+    # Rewrite the function in pytube library for the possibility to iterate clients like "WEB", "ANDROID"...
+    def bypass_age_gate(self, client):
+        """Attempt to update the vid_info by bypassing the age gate."""
+        innertube = InnerTube(
+            client=client,
+            use_oauth=self.use_oauth,
+            allow_cache=self.allow_oauth_cache
+        )
+        innertube_response = innertube.player(self.video_id)
 
-def speech_to_text(audio_bytes):
+        playability_status = innertube_response['playabilityStatus'].get('status', None)
+
+        # If we still can't access the video, raise an exception
+        # (tier 3 age restriction)
+        if playability_status == 'UNPLAYABLE':
+            raise exceptions.AgeRestrictedError(self.video_id)
+
+        self._vid_info = innertube_response
+
+
+# To imitate the open('file_path.mp4','rb')
+class NamedBufferedReader:
+    def __init__(self, raw, name):
+        self.buffered_reader = io.BufferedReader(raw)
+        self.name = name
+
+    def read(self, *args, **kwargs):
+        return self.buffered_reader.read(*args, **kwargs)
+
+    def readline(self, *args, **kwargs):
+        return self.buffered_reader.readline(*args, **kwargs)
+
+    def readlines(self, *args, **kwargs):
+        return self.buffered_reader.readlines(*args, **kwargs)
+
+    def __getattr__(self, attr):
+        return getattr(self.buffered_reader, attr)
+
+
+def speech_to_text(audio_bytes, provider='openai'):
     # EdenAI version (openai provider)
     url = "https://api.edenai.run/v2/audio/speech_to_text_async"
     data = {
-        "providers": "openai",
+        "providers": provider,
         "language": "en-US",
     }
     files = {'file': audio_bytes}
     response = requests.post(url, data=data, files=files, headers=headers)
-    result = json.loads(response.text)['results']['openai']['text']
-    return result
+    provider_result = json.loads(response.text)['results'][provider]
+    try:
+        result = provider_result['text']
+        return result
+    except:
+        raise ValueError(provider_result)
 
 
 # SubFunctions
@@ -50,8 +96,8 @@ def get_post_txt(yt): # Get subtitles or generate from video's audio
 
         if 'en' in all_captions:
             eng_captions = all_captions['en']
-        elif 'a.en' in all_captions:
-            eng_captions = all_captions['a.en']
+        # elif 'a.en' in all_captions:
+        #     eng_captions = all_captions['a.en']
         else:
             raise ValueError("Video doesn't have subtitles, need to create")
         
@@ -83,8 +129,18 @@ def get_post_txt(yt): # Get subtitles or generate from video's audio
             
             return audio_bytes
         
+        # Imitating open('file_path.mp4','rb')
+        def get_buffered_reader(audio_bytes):
+            # Step 2: Create an in-memory binary stream from the audio bytes
+            bytes_io = io.BytesIO(audio_bytes)
+
+            # Step 3: Wrap the BytesIO stream with NamedBufferedReader
+            named_buffered_reader = NamedBufferedReader(bytes_io, 'yt_audio/Me at the zoo.mp4')
+            return named_buffered_reader
+        
         audio_bytes = get_audio_bytes(yt)
-        transcription = speech_to_text(audio_bytes)
+        named_buffered_reader = get_buffered_reader(audio_bytes)
+        transcription = speech_to_text(named_buffered_reader)
 
 
     # Summarize trascription
@@ -154,8 +210,15 @@ def get_post_img(yt, thumbnail=True):
 
 # MainFunction
 def VideoToPost(link, lang='en', reference='no', img=False): # WARNING: include the language,reference logic a bit later
-    yt = YouTube(link)
-    yt.bypass_age_gate()
+    yt = MyYouTube(link)
+    clients = ['WEB', 'ANDROID', 'IOS', 'WEB_EMBED', 'ANDROID_EMBED', 'IOS_EMBED', 'WEB_MUSIC', 'ANDROID_MUSIC', 'IOS_MUSIC', 'WEB_CREATOR', 'ANDROID_CREATOR', 'IOS_CREATOR', 'MWEB', 'TV_EMBED']
+    for client in clients:
+        try:
+            # I modified the function bypass_age_gate() in pytube/__main__
+            yt.bypass_age_gate(client=client)
+            break
+        except:
+            continue
     post_name = yt.title + ' (' + yt.author + ')'
     post_txt = get_post_txt(yt)
     if img:
@@ -167,11 +230,5 @@ def VideoToPost(link, lang='en', reference='no', img=False): # WARNING: include 
 
 #link = 'https://youtu.be/jNQXAC9IVRw?si=gjx36t0J7pZtvDyd' # with subtitles
 #link = 'https://youtu.be/GC80Dk7eg_A?si=n9pIQh0f_A-zVbA_' # with generative subtitles
-#link = 'https://youtu.be/ORMx45xqWkA?si=rhEfMiGPJeUpsHGA'# PyTorch in 100 seconds with subtitles
-#link = 'https://youtu.be/8PhdfcX9tG0?si=bi-8LixVwwNrpzAM' # "I tried 10 code editors"
-#link = 'https://youtu.be/Bp8LcHfFJbs?si=W-HpkIr4o_Bjm7Kd'
-#link = 'https://www.youtube.com/watch?v=hlwcZpEx2IY'
-#link = 'https://www.youtube.com/watch?v=NU8XGQphI3k'
-# link = "https://www.youtube.com/watch?v=TS1A7gCl6eQ"
 
-# post_name,overall_post = VideoToPost(link)
+#VideoToPost(link)
