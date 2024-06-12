@@ -1,9 +1,3 @@
-msgid "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
-msgstr "Привет! Я бот, созданный для преобразования видео с YouTube в посты для Telegram!"
-
-msgid "Hello, I'm @blago7daren! Please contact me if something bad happens."
-msgstr "Привет, я @blago7daren! Пожалуйста, свяжитесь со мной, если что-то пойдет не так."
-
 msgid "[INFO] The last video of {yt_author} was SHORTS(too short)"
 msgstr "[INFO] Последнее видео {yt_author} было КОРОТКИМ (слишком короткое)"
 
@@ -13,25 +7,19 @@ msgstr "[INFO] Последнее видео {yt_author} было ПОДКАСТ
 msgid "[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> '{response}'"
 msgstr "[INFO] Проблема с создателем {yt_author};\nRequests.get(url) ответ -> '{response}'"
 
-msgid "[INFO] The last video of {yt_author} was SHORTS(too short)"
-msgstr "[INFO] Последнее видео {yt_author} было КОРОТКИМ (слишком короткое)"
-
-msgid "[INFO] The last video of {yt_author} was PODCAST(too long)"
-msgstr "[INFO] Последнее видео {yt_author} было ПОДКАСТОМ (слишком длинное)"
-
 msgid "[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)"
 msgstr "[INFO] Проблема с создателем {yt_author}; Исключение: {e} (AIOTUBE)"
 
 msgid "[ERROR]: video url did not pass VideoToPost \n'{video_url}'"
 msgstr "[ERROR]: url видео не прошел VideoToPost \n'{video_url}'"
 
-msgid "\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}"
-msgstr "\n{'*'15}Удаление создателей, от которых не удалось получить видео{''*15}"
+msgid "\n{'*'*15}Removing creators from which we couldn't retrieve the video{'*'*15}"
+msgstr "\n{'*'*15}Удаление создателей, от которых не удалось получить видео{'*'*15}"
 
-msgid "[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work..."
+msgid "[INFO] There are 0 tracked YouTube channels! Auto post suggesting doesn't work..."
 msgstr "[INFO] Отслеживаемых каналов YouTube нет! Автоматическое предложение постов не работает..."
 
-msgid "[INFO] There are 0 projects! Auto post sugessting doesn't work..."
+msgid "[INFO] There are 0 projects! Auto post suggesting doesn't work..."
 msgstr "[INFO] Проектов нет! Автоматическое предложение постов не работает..."
 
 msgid "Enter the command with link without nothing else!\nExample: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
@@ -51,12 +39,6 @@ msgstr "[ERROR] Эта команда выполняется только в а�
 
 msgid "Pick which channel's config to change"
 msgstr "Выберите конфигурацию канала для изменения"
-
-msgid "[ERROR] You are NOT the admin of this group!"
-msgstr "[ERROR] Вы НЕ администратор этой группы!"
-
-msgid "[ERROR] This command executes only in admin group!"
-msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
 
 msgid "Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS"
 msgstr "ID админ-группы\nP.s. Доступно через /get_group_id, используя бота в созданной tg-группе ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ"
@@ -88,23 +70,11 @@ msgstr "Вы добавили {amount} токенов на баланс! Тек�
 msgid "This admin group is linked to these projects {project_names}"
 msgstr "Эта админ-группа связана с этими проектами {project_names}"
 
-msgid "[ERROR] You are NOT the admin of this group!"
-msgstr "[ERROR] Вы НЕ администратор этой группы!"
-
-msgid "[ERROR] This command executes only in admin group!"
-msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
-
 msgid "Pick to which TG channel attach new YT channels"
 msgstr "Выберите, к какому каналу TG прикрепить новые каналы YouTube"
 
 msgid "No TG channels attached to admin group with id {message.chat.id}!"
 msgstr "Нет каналов TG, прикрепленных к админ-группе с id {message.chat.id}!"
-
-msgid "[ERROR] You are NOT the admin of this group!"
-msgstr "[ERROR] Вы НЕ администратор этой группы!"
-
-msgid "[ERROR] This command executes only in admin group!"
-msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
 
 msgid "{user_name} approved the post."
 msgstr "{user_name} одобрил пост."
@@ -153,3 +123,6 @@ msgstr "Конфигурация НЕ была изменена!"
 
 msgid "ERROR: video url did not pass VideoToPost '{yt_link}'. Details - {e}"
 msgstr "ОШИБКА: url видео не прошел VideoToPost '{yt_link}'. Подробности - {e}"
+
+msgid "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
+msgstr "Привет! Я бот, созданный для конвертации видео с YouTube в посты в Telegram!"

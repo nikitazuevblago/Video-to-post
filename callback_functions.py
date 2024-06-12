@@ -21,7 +21,7 @@ async def process_post_reaction(callback_query: CallbackQuery): # Process post r
     action = callback_query.data.replace('post_','')
     user_name = callback_query.from_user.full_name
     if 'to' in action:
-        response_text = f"{user_name} approved the post."
+        response_text = "{user_name} approved the post."
         # Send the post from admin group to telegram channel
         tg_channel_id = action.split('_to_')[-1]
         if callback_query.message.photo:
@@ -36,12 +36,13 @@ async def process_post_reaction(callback_query: CallbackQuery): # Process post r
                 text=callback_query.message.text
             )
     elif action == 'disapprove':
-        response_text = f"{user_name} disapproved the post."
+        response_text = "{user_name} disapproved the post."
     
     # Reply to the user to confirm the action
     user_lang = get_user_lang(callback_query.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
+    response_text = response_text.format(user_name=user_name)
     await callback_query.message.reply(response_text)
 
 
@@ -84,13 +85,14 @@ async def process_new_channels(callback_query: CallbackQuery, state: FSMContext)
     # Edit the message to remove the inline keyboard
     await callback_query.message.edit_reply_markup(reply_markup=None)
 
-    response_text = f'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"'
+    response_text = 'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"'
     user_lang = get_user_lang(callback_query.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
+    response_text = response_text.format(chosen_tg_channel_name=chosen_tg_channel_name)
     await callback_query.message.reply(response_text)
     await state.set_state(new_channels_FORM.new_YT_channels)
-    response_text = f'Enter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino'
+    response_text = 'Enter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino'
     user_lang = get_user_lang(callback_query.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
@@ -109,15 +111,17 @@ async def process_name(message: Message, state: FSMContext):
         print(response_text)
 
     data = await state.get_data()
+    chosen_tg_channel_name = data["chosen_tg_channel_name"]
     response = link_new_YT_channels(data['chosen_tg_channel_id'], new_YT_channels)
     if response:
-        response_text = f'The YT channels {new_YT_channels} have been linked to {data["chosen_tg_channel_name"]}!'
+        response_text = 'The YT channels {new_YT_channels} have been linked to {chosen_tg_channel_name}!' # CHANGE IN messages.po and messages.mo
     else:
-        response_text = f'The YT channels {new_YT_channels} have NOT been linked to {data["chosen_tg_channel_name"]}!'
+        response_text = 'The YT channels {new_YT_channels} have NOT been linked to {chosen_tg_channel_name}!' # CHANGE IN messages.po and messages.mo
     
     user_lang = get_user_lang(message.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
+    response_text = response_text.format(new_YT_channels=new_YT_channels, chosen_tg_channel_name=chosen_tg_channel_name)
     await message.reply(response_text)
 
     # Finish conversation
@@ -135,10 +139,11 @@ async def choose_lang(callback:CallbackQuery, state:FSMContext):
     # Get data from callback
     tg_channel_id, tg_channel_name = callback.data.replace('config_to_','').split('_AKA_')
 
-    response_text = f'Linking the new config to {tg_channel_name}'
+    response_text = "Linking the new config to {tg_channel_name}"
     user_lang = get_user_lang(callback.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
+    response_text = response_text.format(tg_channel_name=tg_channel_name)
     await callback.message.reply(response_text)
 
     # Define keyboard for name choices
@@ -272,10 +277,11 @@ async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=Fa
     except ValueError as e:
         raise ValueError(e)
     except Exception as e:
-        response_text = f'ERROR: video url did not pass VideoToPost "{yt_link}". Details - {e}'
+        response_text = 'ERROR: video url did not pass VideoToPost "{yt_link}". Details - {e}'
         user_lang = get_user_lang(callback.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
+        response_text = response_text.format(yt_link=yt_link, e=e)
         await bot.send_message(admin_group_id, response_text)
         return False
     

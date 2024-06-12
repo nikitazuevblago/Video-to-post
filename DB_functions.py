@@ -255,7 +255,7 @@ def load_dummy_data():
         try:
             cur.execute(f"""INSERT INTO PROJECTS (TG_channel_name, admin_group_id, TG_channel_id) VALUES ('Become a Millionaire',-1002237753557,-1002169269607);""")
             conn.commit()
-            cur.execute(f"""INSERT INTO POST_CONFIG (TG_channel_id, lang, reference_creator, img) VALUES (-1002169269607,'en',False,True);""")
+            cur.execute(f"""INSERT INTO POST_CONFIG (TG_channel_id, lang, reference_creator, img) VALUES (-1002169269607,'ru',False,True);""")
             conn.commit()
             # cur.execute(f"""INSERT INTO USERS (user_id, lang, balance, img) VALUES (-1002169269607,'en',False,True);""")
             # conn.commit()
@@ -344,7 +344,7 @@ def link_new_YT_channels(TG_channel_id, new_YT_channels, table_name='TRACKED_YT_
 def create_or_update_user(user_id, lang=None, balance=None, default=False, table_name='USERS'):
     # Set default user config
     if default:
-        lang = 'en'
+        lang = 'ru'
         balance = 0
     
     if user_id in [CREATOR_ID, TESTER_ID] and TEST_MODE==0: 
@@ -545,8 +545,18 @@ def get_user_lang(user_id, table_name='USERS'):
 
         cur.execute(f"""SELECT lang FROM {table_name} WHERE user_id = {user_id};""")
         user_row_postgres = cur.fetchall()
-        lang = user_row_postgres[0][0]
-        return lang
+        try:
+            lang = user_row_postgres[0][0]
+            return lang
+        except:
+            create_or_update_user(user_id,default=True)
+            cur.execute(f"""SELECT lang FROM {table_name} WHERE user_id = {user_id};""")
+            user_row_postgres = cur.fetchall()
+            try:
+                lang = user_row_postgres[0][0]
+                return lang
+            except:
+                raise ValueError("Could not get the user's language!")
     
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while get_user_lang()')
