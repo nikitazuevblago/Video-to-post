@@ -6,7 +6,7 @@ import re
 from os import getenv
 
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand, ChatMemberOwner
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -18,6 +18,7 @@ from DB_functions import *
 from callback_functions import *
 from fsm_states import *
 from bot_settings import bot,dp
+from translations import translate
 
 try:
     from secret_key import YT_API_KEY, TEST_MODE, CREATOR_ID, TESTER_ID
@@ -27,14 +28,34 @@ except:
     CREATOR_ID = int(getenv('CREATOR_ID'))
     TESTER_ID = int(getenv('TESTER_ID'))
 
-# @dp.message(CommandStart())
-# async def command_start_handler(message: Message) -> None:
-#     await message.answer(f"Hello, I'm a bot created by @blago7daren! Please contact me if something happens.")
+
+async def get_chat_owner_id(chat_id):
+    chat_administrators = await bot.get_chat_administrators(chat_id)
+    for admin in chat_administrators:
+        if isinstance(admin, ChatMemberOwner):
+            owner_id = admin.user.id
+            return owner_id
+    raise ValueError('Could not find the owner :(')
+
+
+@dp.message(CommandStart())
+async def command_start_handler(message: Message) -> None:
+    user_id = message.from_user.id
+    create_or_update_user(user_id, default=True)    
+    response_text = "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    await message.answer(response_text)
 
 
 @dp.message(Command('support'))
 async def command_start_handler(message: Message) -> None:
-    await message.answer(f"Hello, I'm @blago7daren! Please contact me if something bad happens.")
+    response_text = "Hello, I'm @blago7daren! Please contact me if something bad happens."
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    await message.answer(response_text)
 
 
 # FN to convert "ISO 8601" format to seconds
@@ -78,11 +99,24 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
                 elif video_duration<min_duration:
-                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
+                    response_text = f'[INFO] The last video of {yt_author} was SHORTS(too short)'
+                    user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                    if user_lang!='en':
+                        response_text = translate(response_text, user_lang)
+                    await bot.send_message(admin_group_id, response_text)
                 else:
-                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
+                    response_text = f'[INFO] The last video of {yt_author} was PODCAST(too long)'
+                    user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                    if user_lang!='en':
+                        response_text = translate(response_text, user_lang)
+                    await bot.send_message(admin_group_id, response_text)
+                    
             except:
-                await bot.send_message(admin_group_id, f'[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> "{response}"')
+                response_text = f'[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> "{response}"'
+                user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                await bot.send_message(admin_group_id, response_text)
                 bad_creators.add(yt_author)
         
         # Using aiotube library
@@ -98,12 +132,24 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
                 elif video_duration<min_duration:
-                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was SHORTS(too short)')
+                    response_text = f'[INFO] The last video of {yt_author} was SHORTS(too short)'
+                    user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                    if user_lang!='en':
+                        response_text = translate(response_text, user_lang)
+                    await bot.send_message(admin_group_id, response_text)
                 else:
-                    await bot.send_message(admin_group_id, f'[INFO] The last video of {yt_author} was PODCAST(too long)')
+                    response_text = f'[INFO] The last video of {yt_author} was PODCAST(too long)'
+                    user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                    if user_lang!='en':
+                        response_text = translate(response_text, user_lang)
+                    await bot.send_message(admin_group_id, response_text)
                     
             except Exception as e:
-                await bot.send_message(admin_group_id, f'[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)')
+                response_text = f'[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)'
+                user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                await bot.send_message(admin_group_id, response_text)
                 bad_creators.add(yt_author)
 
     used_video_urls = get_used_video_urls()
@@ -127,11 +173,15 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                         for video_url in new_latest_video_urls:
                             config_lang, config_reference, config_img = get_post_config(tg_channel_id)
                             try:
-                                post_name, post_dict = VideoToPost(video_url, img=True, post_lang=config_lang, reference=config_reference, post_img=config_img) 
+                                post_name, post_dict = VideoToPost(video_url, post_lang=config_lang, reference=config_reference, post_img=config_img) 
                             except ValueError as e:
                                 raise ValueError(e)
                             except:
-                                print(f'ERROR: video url did not pass VideoToPost \n"{video_url}"')
+                                response_text = f'[ERROR]: video url did not pass VideoToPost \n"{video_url}"'
+                                user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                                if user_lang!='en':
+                                    response_text = translate(response_text, user_lang)
+                                print(response_text)
                                 continue
 
                             # Create inline keyboard with approve and disapprove buttons
@@ -146,7 +196,7 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                                         BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
                                         caption=post_dict['post_txt'], reply_markup=keyboard)
                             else:
-                                await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard) # + ' (youtube_video_link)'
+                                await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard)
 
                             await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
 
@@ -154,7 +204,11 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
 
                     if delete_bad_creators:
                         if len(bad_creators)>0:
-                            print(f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}")
+                            response_text = f"\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}"
+                            user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                            if user_lang!='en':
+                                response_text = translate(response_text, user_lang)
+                            print(response_text)
                             remove_yt_creators(bad_creators)
 
                     if TEST_MODE==1:                
@@ -162,13 +216,21 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                     else:
                         await asyncio.sleep(production_sleep) # Check for new videos every 5 hours (18000 sec)
                 else:
-                    await bot.send_message(admin_group_id, f"[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work...")
+                    response_text = f"[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work..."
+                    user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+                    if user_lang!='en':
+                        response_text = translate(response_text, user_lang)
+                    await bot.send_message(admin_group_id, response_text)
                     if TEST_MODE==1:                
                         await asyncio.sleep(test_sleep)  
                     else:
                         await asyncio.sleep(production_sleep)
         else:
-            await bot.send_message(CREATOR_ID, f"[INFO] There are 0 projects! Auto post sugessting doesn't work...")
+            response_text = f"[INFO] There are 0 projects! Auto post sugessting doesn't work..."
+            user_lang = get_user_lang(get_chat_owner_id(admin_group_id))
+            if user_lang!='en':
+                response_text = translate(response_text, user_lang)
+            await bot.send_message(CREATOR_ID, response_text)
             if TEST_MODE==1:                
                 await asyncio.sleep(test_sleep)  
             else:
@@ -203,7 +265,11 @@ async def video_to_post(message:Message, state:FSMContext):
         assert len(message_parts)==2
         yt_link = message_parts[1]
     except:
-        await message.reply('Enter the command with link without nothing else!\nExample: "/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"')
+        response_text = 'Enter the command with link without nothing else!\nExample: "/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"'
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+        await message.reply(response_text)
         return False
     chat_id = message.chat.id
     if chat_id in get_admin_group_ids():
@@ -220,13 +286,29 @@ async def video_to_post(message:Message, state:FSMContext):
                 await state.update_data(admin_group_id=chat_id)
                 await state.update_data(yt_link=yt_link)
                 await state.set_state(video_to_post_FORM.tg_channel_id)
-                await message.reply(f'Select the Telegram channel where you want to send the post', reply_markup=builder.as_markup())
+                response_text = f'Select the Telegram channel where you want to send the post'
+                user_lang = get_user_lang(message.from_user.id)
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                await message.reply(response_text, reply_markup=builder.as_markup())
             else:
-                await bot.send_message(message.chat.id, f'[ERROR] First create the project with /create_project!')
+                response_text = f'[ERROR] First create the project with /create_project!'
+                user_lang = get_user_lang(message.from_user.id)
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                await bot.send_message(message.chat.id, response_text)
         else:
-            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+            response_text = f'[ERROR] You are NOT the admin of this group!'
+            user_lang = get_user_lang(message.from_user.id)
+            if user_lang!='en':
+                response_text = translate(response_text, user_lang)
+            await bot.send_message(message.chat.id, )
     else:
-        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')  
+        response_text = f'[ERROR] This command executes only in admin group!'
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+        await bot.send_message(message.chat.id, response_text)  
 
 
 @dp.message(Command('post_config'))
@@ -241,18 +323,35 @@ async def post_config(message: Message, state:FSMContext):
                 channel_info = await bot.get_chat(related_tg_channel_id)
                 channel_name = channel_info.title
                 builder.button(text=channel_name, callback_data=f'config_to_{related_tg_channel_id}_AKA_{channel_name}')
+
             state.set_state(post_config_FORM.tg_channel_id)
-            await bot.send_message(message.chat.id, f"Pick which channel's config to change", reply_markup=builder.as_markup())
+            response_text = f"Pick which channel's config to change"
+            user_lang = get_user_lang(message.from_user.id)
+            if user_lang!='en':
+                response_text = translate(response_text, user_lang)
+            await bot.send_message(message.chat.id, response_text, reply_markup=builder.as_markup())
         else:
-            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+            response_text = f'[ERROR] You are NOT the admin of this group!'
+            user_lang = get_user_lang(message.from_user.id)
+            if user_lang!='en':
+                response_text = translate(response_text, user_lang)
+            await bot.send_message(message.chat.id, response_text)
     else:
-        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
+        response_text = f'[ERROR] This command executes only in admin group!'
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+        await bot.send_message(message.chat.id, response_text)
 
 
 @dp.message(Command('create_project'))
 async def create_project(message: Message, state: FSMContext):
     await state.set_state(create_project_FORM.admin_group_id)
-    await message.reply("Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS)")
+    response_text = "Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    await message.reply(response_text)
 
 
 # State handler
@@ -260,7 +359,11 @@ async def create_project(message: Message, state: FSMContext):
 async def process_admin_group(message: Message, state: FSMContext):
     await state.update_data(admin_group_id=message.text)
     await state.set_state(create_project_FORM.tg_channel_id)
-    await message.reply("TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg channel for viewers)")
+    response_text = "TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg channel for viewers"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    await message.reply(response_text)
 
 
 # State handler
@@ -280,10 +383,16 @@ async def process_tg_channel(message: Message, state: FSMContext):
     chat_id = message.chat.id
     if response:
         response_text = f"[INFO] The project {channel_name} has been created!..."
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
         create_or_update_config(data['tg_channel_id'], default=True)
     else:
         response_text = f"The new project HASN'T been created!\nP.s. Frequent errors - 1. Project already exists (/check_projects) 2. Letters in 'Admin group id' or 'TG channel id'"
-    
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+
     await bot.send_message(chat_id, response_text)
 
     # Finish conversation
@@ -293,9 +402,17 @@ async def process_tg_channel(message: Message, state: FSMContext):
 @dp.message(Command('get_group_id'))
 async def get_group_id(message: Message):
     if message.chat.type in ['group', 'supergroup']:
-        await message.reply(f"ID of this group: {message.chat.id}")
+        response_text = f"ID of this group: {message.chat.id}"
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
     else:
-        await message.reply("This command can only be used in a group or supergroup.")
+        response_text = "This command can only be used in a group or supergroup."
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+
+    await message.reply(response_text)
 
 
 @dp.message(Command('balance'))
@@ -303,7 +420,11 @@ async def get_balance(message: Message):
     user_id = message.from_user.id
     create_or_update_user(user_id, default=True)
     balance = get_user_balance(user_id)
-    await message.reply(f"You have {balance} tokens")
+    response_text = f"You have {balance} tokens"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    await message.reply(response_text)
 
 
 @dp.message(Command('top_up'))
@@ -316,14 +437,22 @@ async def top_up_balance(message: Message):
         assert len(message_parts)==2
         amount = int(message_parts[1])
     except:
-        await message.reply('Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: "/top_up 100"')
+        response_text = 'Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: "/top_up 100"'
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+        await message.reply(response_text)
         return False
 
     create_or_update_user(user_id, balance=amount)
     add_new_transaction(user_id, amount)
     balance = get_user_balance(user_id)
 
-    await message.reply(f"You added {amount} tokens to the balance! Current balance is {balance}")
+    response_text = f"You added {amount} tokens to the balance! Current balance is {balance}"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    await message.reply(response_text)
 
 
 @dp.message(Command('check_transactions'))
@@ -347,12 +476,23 @@ async def check_projects(message: Message):
             project_names = get_projects(chat_id)
             if len(project_names)>0:
                 response_text = f'This admin group is linked to these projects {project_names}'
+                user_lang = get_user_lang(message.from_user.id)
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
             await message.reply(response_text)
             
         else:
-            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+            response_text = f'[ERROR] You are NOT the admin of this group!'
+            user_lang = get_user_lang(message.from_user.id)
+            if user_lang!='en':
+                response_text = translate(response_text, user_lang)
+            await bot.send_message(message.chat.id, response_text)
     else:
-        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
+        response_text = f'[ERROR] This command executes only in admin group!'
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+        await bot.send_message(message.chat.id, response_text)
 
 
 @dp.message(Command("set_language"))
@@ -385,15 +525,31 @@ async def new_channels(message: Message):
                     channel_info = await bot.get_chat(related_tg_channel_id)
                     channel_name = channel_info.title
                     builder.button(text=channel_name, callback_data=f'new_channels_to_{related_tg_channel_id}_AKA_{channel_name}')
-                    
-                await bot.send_message(message.chat.id, f'Pick to which TG channel attach new YT channels', reply_markup=builder.as_markup())
+                
+                response_text = f'Pick to which TG channel attach new YT channels'
+                user_lang = get_user_lang(message.from_user.id)
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                await bot.send_message(message.chat.id, response_text, reply_markup=builder.as_markup())
 
             else:
-                await bot.send_message(message.chat.id, f'No TG channels attached to admin group with id {message.chat.id}!')
+                response_text = f'No TG channels attached to admin group with id {message.chat.id}!'
+                user_lang = get_user_lang(message.from_user.id)
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                await bot.send_message(message.chat.id, response_text)
         else:
-            await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
+            response_text = f'[ERROR] You are NOT the admin of this group!'
+            user_lang = get_user_lang(message.from_user.id)
+            if user_lang!='en':
+                response_text = translate(response_text, user_lang)
+            await bot.send_message(message.chat.id, response_text)
     else:
-        await bot.send_message(message.chat.id, f'[ERROR] This command executes only in admin group!')
+        response_text = f'[ERROR] This command executes only in admin group!'
+        user_lang = get_user_lang(message.from_user.id)
+        if user_lang!='en':
+            response_text = translate(response_text, user_lang)
+        await bot.send_message(message.chat.id, response_text)
     
 
 # Run the bot

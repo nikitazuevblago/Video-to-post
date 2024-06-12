@@ -1,0 +1,155 @@
+msgid "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
+msgstr "Привет! Я бот, созданный для преобразования видео с YouTube в посты для Telegram!"
+
+msgid "Hello, I'm @blago7daren! Please contact me if something bad happens."
+msgstr "Привет, я @blago7daren! Пожалуйста, свяжитесь со мной, если что-то пойдет не так."
+
+msgid "[INFO] The last video of {yt_author} was SHORTS(too short)"
+msgstr "[INFO] Последнее видео {yt_author} было КОРОТКИМ (слишком короткое)"
+
+msgid "[INFO] The last video of {yt_author} was PODCAST(too long)"
+msgstr "[INFO] Последнее видео {yt_author} было ПОДКАСТОМ (слишком длинное)"
+
+msgid "[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> '{response}'"
+msgstr "[INFO] Проблема с создателем {yt_author};\nRequests.get(url) ответ -> '{response}'"
+
+msgid "[INFO] The last video of {yt_author} was SHORTS(too short)"
+msgstr "[INFO] Последнее видео {yt_author} было КОРОТКИМ (слишком короткое)"
+
+msgid "[INFO] The last video of {yt_author} was PODCAST(too long)"
+msgstr "[INFO] Последнее видео {yt_author} было ПОДКАСТОМ (слишком длинное)"
+
+msgid "[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)"
+msgstr "[INFO] Проблема с создателем {yt_author}; Исключение: {e} (AIOTUBE)"
+
+msgid "[ERROR]: video url did not pass VideoToPost \n'{video_url}'"
+msgstr "[ERROR]: url видео не прошел VideoToPost \n'{video_url}'"
+
+msgid "\n{'*'*15}Removing creators from which we couldn't retreive the video{'*'*15}"
+msgstr "\n{'*'15}Удаление создателей, от которых не удалось получить видео{''*15}"
+
+msgid "[INFO] There are 0 tracked YouTube channels! Auto post sugessting doesn't work..."
+msgstr "[INFO] Отслеживаемых каналов YouTube нет! Автоматическое предложение постов не работает..."
+
+msgid "[INFO] There are 0 projects! Auto post sugessting doesn't work..."
+msgstr "[INFO] Проектов нет! Автоматическое предложение постов не работает..."
+
+msgid "Enter the command with link without nothing else!\nExample: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
+msgstr "Введите команду со ссылкой без ничего лишнего!\nПример: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
+
+msgid "Select the Telegram channel where you want to send the post"
+msgstr "Выберите Telegram-канал, куда хотите отправить пост"
+
+msgid "[ERROR] First create the project with /create_project!"
+msgstr "[ERROR] Сначала создайте проект с помощью /create_project!"
+
+msgid "[ERROR] You are NOT the admin of this group!"
+msgstr "[ERROR] Вы НЕ администратор этой группы!"
+
+msgid "[ERROR] This command executes only in admin group!"
+msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
+
+msgid "Pick which channel's config to change"
+msgstr "Выберите конфигурацию канала для изменения"
+
+msgid "[ERROR] You are NOT the admin of this group!"
+msgstr "[ERROR] Вы НЕ администратор этой группы!"
+
+msgid "[ERROR] This command executes only in admin group!"
+msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
+
+msgid "Admin group id\nP.s. Can be accessed with /get_group_id, using bot in created tg group ONLY FOR ADMINS"
+msgstr "ID админ-группы\nP.s. Доступно через /get_group_id, используя бота в созданной tg-группе ТОЛЬКО ДЛЯ АДМИНИСТРАТОРОВ"
+
+msgid "TG channel id (posts destination)\nP.s. Can be accessed with /get_group_id, using bot in created tg channel for viewers"
+msgstr "ID канала TG (место назначения постов)\nP.s. Доступно через /get_group_id, используя бота в созданном tg-канале для зрителей"
+
+msgid "[INFO] The project {channel_name} has been created!..."
+msgstr "[INFO] Проект {channel_name} был создан!..."
+
+msgid "The new project HASN'T been created!\nP.s. Frequent errors - 1. Project already exists (/check_projects) 2. Letters in 'Admin group id' or 'TG channel id'"
+msgstr "Новый проект НЕ был создан!\nP.s. Частые ошибки - 1. Проект уже существует (/check_projects) 2. Буквы в 'ID админ-группы' или 'ID канала TG'"
+
+msgid "ID of this group: {message.chat.id}"
+msgstr "ID этой группы: {message.chat.id}"
+
+msgid "This command can only be used in a group or supergroup."
+msgstr "Эту команду можно использовать только в группе или супергруппе."
+
+msgid "You have {balance} tokens"
+msgstr "У вас {balance} токенов"
+
+msgid "Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: '/top_up 100'"
+msgstr "Введите количество токенов после /top_up, без букв и пробелов!\nПример: '/top_up 100'"
+
+msgid "You added {amount} tokens to the balance! Current balance is {balance}"
+msgstr "Вы добавили {amount} токенов на баланс! Текущий баланс составляет {balance}"
+
+msgid "This admin group is linked to these projects {project_names}"
+msgstr "Эта админ-группа связана с этими проектами {project_names}"
+
+msgid "[ERROR] You are NOT the admin of this group!"
+msgstr "[ERROR] Вы НЕ администратор этой группы!"
+
+msgid "[ERROR] This command executes only in admin group!"
+msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
+
+msgid "Pick to which TG channel attach new YT channels"
+msgstr "Выберите, к какому каналу TG прикрепить новые каналы YouTube"
+
+msgid "No TG channels attached to admin group with id {message.chat.id}!"
+msgstr "Нет каналов TG, прикрепленных к админ-группе с id {message.chat.id}!"
+
+msgid "[ERROR] You are NOT the admin of this group!"
+msgstr "[ERROR] Вы НЕ администратор этой группы!"
+
+msgid "[ERROR] This command executes only in admin group!"
+msgstr "[ERROR] Эта команда выполняется только в админ-группе!"
+
+msgid "{user_name} approved the post."
+msgstr "{user_name} одобрил пост."
+
+msgid "{user_name} disapproved the post."
+msgstr "{user_name} не одобрил пост."
+
+msgid "Выбраный язык: Русский"
+msgstr "Выбранный язык: Русский"
+
+msgid "Chosen language: English"
+msgstr "Выбранный язык: Английский"
+
+msgid "Linking tracking of new YouTube channels to '{chosen_tg_channel_name}'"
+msgstr "Привязка отслеживания новых каналов YouTube к '{chosen_tg_channel_name}'"
+
+msgid "Enter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino"
+msgstr "Введите каналы без @, разделенные запятыми (без запятых для одного канала)\nНапример: ImanGadzhi,childishgambino"
+
+msgid "Separate channels by comma! Try /new_channels again."
+msgstr "Разделите каналы запятыми! Попробуйте /new_channels снова."
+
+msgid "The YT channels {new_YT_channels} have been linked to {data['chosen_tg_channel_name']}!"
+msgstr "Каналы YouTube {new_YT_channels} были связаны с {data['chosen_tg_channel_name']}!"
+
+msgid "The YT channels {new_YT_channels} have NOT been linked to {data['chosen_tg_channel_name']}!"
+msgstr "Каналы YouTube {new_YT_channels} НЕ были связаны с {data['chosen_tg_channel_name']}!"
+
+msgid "Linking the new config to {tg_channel_name}"
+msgstr "Привязка новой конфигурации к {tg_channel_name}"
+
+msgid "Choose the language of posts"
+msgstr "Выберите язык постов"
+
+msgid "Choose whether to reference the YT author"
+msgstr "Выберите, указывать ли автора YouTube"
+
+msgid "Include the YT banner?\nP.s. It will serve as the post's image"
+msgstr "Включить баннер YouTube?\nP.s. Он будет служить изображением поста"
+
+msgid "Config has been changed!"
+msgstr "Конфигурация была изменена!"
+
+msgid "Config has NOT been changed!"
+msgstr "Конфигурация НЕ была изменена!"
+
+msgid "ERROR: video url did not pass VideoToPost '{yt_link}'. Details - {e}"
+msgstr "ОШИБКА: url видео не прошел VideoToPost '{yt_link}'. Подробности - {e}"

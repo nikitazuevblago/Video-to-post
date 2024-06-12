@@ -257,6 +257,8 @@ def load_dummy_data():
             conn.commit()
             cur.execute(f"""INSERT INTO POST_CONFIG (TG_channel_id, lang, reference_creator, img) VALUES (-1002169269607,'en',False,True);""")
             conn.commit()
+            # cur.execute(f"""INSERT INTO USERS (user_id, lang, balance, img) VALUES (-1002169269607,'en',False,True);""")
+            # conn.commit()
             return True
         except psycopg2.errors.UndefinedTable:
             conn.rollback()
@@ -528,6 +530,26 @@ def get_post_config(TG_channel_id, table_name='POST_CONFIG'):
     
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_user_lang(user_id, table_name='USERS'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        cur.execute(f"""SELECT lang FROM {table_name} WHERE user_id = {user_id};""")
+        user_row_postgres = cur.fetchall()
+        lang = user_row_postgres[0][0]
+        return lang
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while get_user_lang()')
         return False
     
     finally:
