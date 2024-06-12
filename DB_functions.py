@@ -176,7 +176,8 @@ def create_db():
         cur.execute(f"""CREATE TABLE IF NOT EXISTS POST_CONFIG (
                             TG_channel_id BIGINT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
                             lang VARCHAR(5),
-                            reference_creator BOOLEAN);""")
+                            reference_creator BOOLEAN,
+                            img BOOLEAN);""")
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS TRACKED_YT_CHANNELS (
@@ -253,6 +254,8 @@ def load_dummy_data():
         cur = conn.cursor()
         try:
             cur.execute(f"""INSERT INTO PROJECTS (TG_channel_name, admin_group_id, TG_channel_id) VALUES ('Become a Millionaire',-1002237753557,-1002169269607);""")
+            conn.commit()
+            cur.execute(f"""INSERT INTO POST_CONFIG (TG_channel_id, lang, reference_creator, img) VALUES (-1002169269607,'en',False,True);""")
             conn.commit()
             return True
         except psycopg2.errors.UndefinedTable:
@@ -447,18 +450,13 @@ def get_user_transactions(user_id):
         conn.close()
 
 
-def create_or_update_config(TG_channel_id, lang=None, reference=None, default=False, table_name='POST_CONFIG'):
+def create_or_update_config(TG_channel_id, lang=None, reference=None, img=None, default=False, table_name='POST_CONFIG'):
 
     # Set default user config
     if default:
         lang = 'en'
-        reference = 'no'
-
-    if reference == 'yes':
-        reference = 'TRUE'
-    else:
-        reference = 'FALSE'
-
+        reference = False
+        img = True
 
     try:
         # Establish db connection
@@ -469,7 +467,7 @@ def create_or_update_config(TG_channel_id, lang=None, reference=None, default=Fa
         cur.execute(f"""SELECT * FROM {table_name} WHERE TG_channel_id = {TG_channel_id}""")
         tg_config_row = cur.fetchall()
         if len(tg_config_row)==0:
-            cur.execute(f"""INSERT INTO {table_name} (TG_channel_id, lang, reference_creator) VALUES ({TG_channel_id}, '{lang}', {reference});""")
+            cur.execute(f"""INSERT INTO {table_name} (TG_channel_id, lang, reference_creator, img) VALUES ({TG_channel_id}, '{lang}', {reference}, {img});""")
         else:
             if default:
                 return True
@@ -477,8 +475,10 @@ def create_or_update_config(TG_channel_id, lang=None, reference=None, default=Fa
                 lang = tg_config_row[0][1]
             if reference==None:
                 reference = tg_config_row[0][2]
+            if img==None:
+                img = img[0][3]
 
-            cur.execute(f"""UPDATE {table_name} SET lang='{lang}', reference={reference} WHERE TG_channel_id = {TG_channel_id};""")
+            cur.execute(f"""UPDATE {table_name} SET lang='{lang}', reference_creator={reference}, img={img} WHERE TG_channel_id = {TG_channel_id};""")
 
         conn.commit()
         return True
@@ -505,6 +505,26 @@ def get_projects(admin_group_id, table_name='PROJECTS'):
            return linked_projects
         else:
             return []
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+    
+
+def get_post_config(TG_channel_id, table_name='POST_CONFIG'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        cur.execute(f"""SELECT lang, reference_creator, img FROM {table_name} WHERE TG_channel_id = {TG_channel_id};""")
+        tg_channel_config_postgres = cur.fetchall()
+        config_lang, config_reference, img = tg_channel_config_postgres[0]
+        return config_lang, config_reference, img
     
     except psycopg2.errors.OperationalError:
         print('ERROR: cannot connect to PostgreSQL while create_new_user()')

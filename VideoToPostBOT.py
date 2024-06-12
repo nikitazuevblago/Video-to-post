@@ -112,7 +112,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=120, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
@@ -125,12 +125,13 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                     
                     if len(new_latest_video_urls)>0:
                         for video_url in new_latest_video_urls:
+                            config_lang, config_reference, config_img = get_post_config(tg_channel_id)
                             try:
-                                post_name, post_dict = VideoToPost(video_url, img=True) 
+                                post_name, post_dict = VideoToPost(video_url, img=True, post_lang=config_lang, reference=config_reference, post_img=config_img) 
                             except ValueError as e:
                                 raise ValueError(e)
                             except:
-                                print(f'ERROR: video url did not pass VideoToPost "{video_url}"')
+                                print(f'ERROR: video url did not pass VideoToPost \n"{video_url}"')
                                 continue
 
                             # Create inline keyboard with approve and disapprove buttons
@@ -194,7 +195,6 @@ async def set_help_menu():
     await bot.set_my_commands(commands)
 
 
-
 # ADD VIDEO_URL TO USED_VIDEO_URLS!!
 @dp.message(Command('video_to_post'))
 async def video_to_post(message:Message, state:FSMContext):
@@ -230,7 +230,7 @@ async def video_to_post(message:Message, state:FSMContext):
 
 
 @dp.message(Command('post_config'))
-async def post_config(message: Message):
+async def post_config(message: Message, state:FSMContext):
     chat_id = message.chat.id
     if chat_id in get_admin_group_ids():
         chat_member = await bot.get_chat_member(chat_id=message.chat.id, user_id=message.from_user.id) 
@@ -241,6 +241,7 @@ async def post_config(message: Message):
                 channel_info = await bot.get_chat(related_tg_channel_id)
                 channel_name = channel_info.title
                 builder.button(text=channel_name, callback_data=f'config_to_{related_tg_channel_id}_AKA_{channel_name}')
+            state.set_state(post_config_FORM.tg_channel_id)
             await bot.send_message(message.chat.id, f"Pick which channel's config to change", reply_markup=builder.as_markup())
         else:
             await bot.send_message(message.chat.id, f'[ERROR] You are NOT the admin of this group!')
@@ -413,9 +414,10 @@ async def run_bot() -> None:
     dp.callback_query.register(process_post_reaction, lambda c: c.data.startswith('post_'))
     dp.callback_query.register(process_lang, lambda c: c.data in ['ru', 'en'])
     dp.callback_query.register(process_new_channels, lambda c: c.data.startswith('new_channels_to_'))
-    dp.callback_query.register(process_config, lambda c: c.data.startswith('config_to_'))
-    dp.callback_query.register(process_config_lang, lambda c: c.data.startswith('config_lang'))
-    dp.callback_query.register(process_full_config, lambda c: c.data.startswith('full_config'))
+    dp.callback_query.register(choose_lang, lambda c: c.data.startswith('config_to'))
+    dp.callback_query.register(choose_reference, lambda c: c.data.startswith('config_lang'))
+    dp.callback_query.register(choose_img, lambda c: c.data.startswith('config_reference'))
+    dp.callback_query.register(process_full_config, lambda c: c.data.startswith('config_img'))
     dp.callback_query.register(process_manual_VTP, lambda c: c.data.startswith('vtp'))
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls

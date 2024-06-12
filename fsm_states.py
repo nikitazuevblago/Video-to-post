@@ -12,3 +12,10 @@ class create_project_FORM(StatesGroup):
 
 class new_channels_FORM(StatesGroup):
     new_YT_channels = State()
+
+
+class post_config_FORM(StatesGroup):
+    tg_channel_id = State()
+    lang = State()
+    reference = State()
+    img = State()
