@@ -1,4 +1,5 @@
 import asyncio
+import time
 from aiogram.types import CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 from aiogram.fsm.state import State, StatesGroup
@@ -7,7 +8,7 @@ from aiogram.types import Message
 from DB_functions import *
 from fsm_states import *
 from bot_settings import bot,dp
-from VideoToPost import VideoToPost
+from VideoToPost import VideoToPost, get_post_cost
 from translations import translate
 
 
@@ -275,7 +276,7 @@ async def process_full_config(callback:CallbackQuery, state:FSMContext):
 
 
 @dp.message(video_to_post_FORM.tg_channel_id)
-async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=False):
+async def process_chosen_tg(callback:CallbackQuery, state:FSMContext, yt_api=False):
     # Acknowledge the callback query to stop the "loading" state
     await callback.answer(cache_time=12)
 
@@ -289,44 +290,34 @@ async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=Fa
     admin_group_id = data['admin_group_id']
     await state.clear()
 
-    config_lang, config_reference, config_img = get_post_config(TG_channel_id)
-    try:
-        post_name, post_dict = VideoToPost(yt_link, post_lang=config_lang, reference=config_reference, post_img=config_img) 
-    except ValueError as e:
-        raise ValueError(e)
-    except Exception as e:
-        response_text = "ERROR: video url did not pass VideoToPost '{yt_link}'. Details - {e}"
-        user_lang = get_user_lang(callback.from_user.id)
-        if user_lang!='en':
-            response_text = translate(response_text, user_lang)
-        response_text = response_text.format(yt_link=yt_link, e=e)
-        await bot.send_message(admin_group_id, response_text)
-        return False
-    
+    post_cost = get_post_cost(yt_link)
+    current_timestamp_str = str(time.time())
     user_lang = get_user_lang(callback.from_user.id)
     if user_lang=='en':
-        approve_button_text = 'Approve'
-        disapprove_button_text = 'Disapprove'
+        approve_button_text = 'Accept'
+        disapprove_button_text = 'Cancel'
     elif user_lang=='ru':
         approve_button_text = 'Принять'
         disapprove_button_text = 'Отклонить'
-    
+
+    current_timestamp_str = str(time.time())
+
     # Create inline keyboard with approve and disapprove buttons
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=approve_button_text, callback_data=f'post_approve_to_{TG_channel_id}')],
-        [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'post_disapprove')]])
+        [InlineKeyboardButton(text=approve_button_text, callback_data=f'cost_approve_{current_timestamp_str}')],
+        [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'cost_disapprove_{current_timestamp_str}')]])
+    
+    response_text = "[INFO] Converting this video '{video_url}' into a Telegram post will cost {post_cost} tokens. Do you agree?"
+    user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    response_text = response_text.format(video_url=yt_link, post_cost=post_cost)
 
-    if 'post_img' in post_dict.keys():
-        # Send image with a caption
-        await bot.send_photo(
-                admin_group_id, 
-                BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
-                caption=post_dict['post_txt'], reply_markup=keyboard)
-    else:
-        await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard)
+    new_pending_work(current_timestamp_str,yt_link,post_cost,admin_group_id,TG_channel_id)
+    await bot.send_message(admin_group_id, response_text, reply_markup=keyboard)
 
 
-async def process_auto_VPT(callback:CallbackQuery):
+async def process_cost_approvement(callback:CallbackQuery):
     # Acknowledge the callback query to stop the "loading" state
     await callback.answer(cache_time=12)
 
@@ -390,7 +381,7 @@ async def process_auto_VPT(callback:CallbackQuery):
                 await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard)
             
             # Interaction with DB
-            add_new_transaction(user_id, sum=post_cost)
+            add_new_transaction(user_id, sum=post_cost, action='spending')
             create_or_update_user(user_id, balance=user_balance-post_cost)
 
             await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)

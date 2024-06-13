@@ -197,7 +197,8 @@ def create_db():
                                 transaction_id SERIAL PRIMARY KEY,
                                 user_id BIGINT,
                                 sum FLOAT,
-                                date TIMESTAMP
+                                date TIMESTAMP,
+                                action VARCHAR(10)
                     );""")
         conn.commit()
 
@@ -411,7 +412,7 @@ def get_user_balance(user_id, table_name='USERS'):
         conn.close()
 
 
-def add_new_transaction(user_id, sum, table_name='TRANSACTIONS'):
+def add_new_transaction(user_id, sum, action, table_name='TRANSACTIONS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
@@ -422,7 +423,7 @@ def add_new_transaction(user_id, sum, table_name='TRANSACTIONS'):
         current_moscow_time = cur.fetchone()[0].strftime('%Y-%m-%d %H:%M:%S')
 
         # CURRENT_TIMESTAMP will be current dependent on server's time!!! Railway default is OREGON, USA
-        cur.execute(f"""INSERT INTO {table_name} (user_id, sum, date) VALUES({user_id}, {sum}, '{current_moscow_time}');""")
+        cur.execute(f"""INSERT INTO {table_name} (user_id, sum, date, action) VALUES({user_id}, {sum}, '{current_moscow_time}', '{action}');""")
         conn.commit()
         
         return True
@@ -436,17 +437,17 @@ def add_new_transaction(user_id, sum, table_name='TRANSACTIONS'):
         conn.close()
 
 
-def get_user_transactions(user_id):
+def get_user_transactions(user_id, table_name='TRANSACTIONS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
 
         # CURRENT_TIMESTAMP will be current dependent on server's time!!! Railway default is OREGON, USA
-        cur.execute(f"""SELECT * FROM TRANSACTIONS WHERE user_id = {user_id};""")
+        cur.execute(f"""SELECT * FROM {table_name} WHERE user_id = {user_id};""")
         user_transactions_postgres = cur.fetchall()
         if len(user_transactions_postgres)>0:
-            user_transactions_table = pd.DataFrame(user_transactions_postgres,columns=['transaction_id','user_id','sum','date'])
+            user_transactions_table = pd.DataFrame(user_transactions_postgres,columns=['transaction_id','user_id','sum','date','action'])
             str_table = tabulate(user_transactions_table, headers='keys', tablefmt='pipe')
             return f"```\n{str_table}\n```"
         else:

@@ -443,7 +443,7 @@ async def top_up_balance(message: Message):
         return False
 
     create_or_update_user(user_id, balance=amount)
-    add_new_transaction(user_id, amount)
+    add_new_transaction(user_id, amount, action='top_up')
     balance = get_user_balance(user_id)
 
     response_text = "You added {amount} tokens to the balance! Current balance is {balance}"
@@ -576,8 +576,8 @@ async def run_bot() -> None:
     dp.callback_query.register(choose_reference, lambda c: c.data.startswith('config_lang'))
     dp.callback_query.register(choose_img, lambda c: c.data.startswith('config_reference'))
     dp.callback_query.register(process_full_config, lambda c: c.data.startswith('config_img'))
-    dp.callback_query.register(process_manual_VTP, lambda c: c.data.startswith('vtp'))
-    dp.callback_query.register(process_auto_VPT, lambda c: c.data.startswith('cost_'))
+    dp.callback_query.register(process_chosen_tg, lambda c: c.data.startswith('vtp'))
+    dp.callback_query.register(process_cost_approvement, lambda c: c.data.startswith('cost_'))
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())
