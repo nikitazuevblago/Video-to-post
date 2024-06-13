@@ -3,17 +3,18 @@ import logging
 import requests
 import sys
 import re
+import time
 from os import getenv
 
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand, ChatMemberOwner
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.filters import CommandStart, Command
 from aiogram.enums.chat_member_status import ChatMemberStatus
 import aiotube
 from pytube import Channel
-from VideoToPost import VideoToPost
+from VideoToPost import VideoToPost, get_post_cost
 from DB_functions import *
 from callback_functions import *
 from fsm_states import *
@@ -27,15 +28,6 @@ except:
     TEST_MODE = int(getenv('TEST_MODE'))
     CREATOR_ID = int(getenv('CREATOR_ID'))
     TESTER_ID = int(getenv('TESTER_ID'))
-
-
-async def get_chat_owner_id(chat_id):
-    chat_administrators = await bot.get_chat_administrators(chat_id)
-    for admin in chat_administrators:
-        if isinstance(admin, ChatMemberOwner):
-            owner_id = admin.user.id
-            return owner_id
-    raise ValueError('Could not find the owner :(')
 
 
 @dp.message(CommandStart())
@@ -164,13 +156,11 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=60, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
             for tg_channel_id, admin_group_id in all_projects:
-                
-
                 tracked_yt_channels = get_tracked_channels(tg_channel_id)
                 if len(tracked_yt_channels)>0:
                     yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
@@ -179,42 +169,31 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                     
                     if len(new_latest_video_urls)>0:
                         for video_url in new_latest_video_urls:
-                            config_lang, config_reference, config_img = get_post_config(tg_channel_id)
-                            try:
-                                post_name, post_dict = VideoToPost(video_url, post_lang=config_lang, reference=config_reference, post_img=config_img) 
-                            except ValueError as e:
-                                raise ValueError(e)
-                            except:
-                                response_text = '[ERROR]: video url did not pass VideoToPost \n"{video_url}"'
-                                user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
-                                if user_lang!='en':
-                                    response_text = translate(response_text, user_lang)
-                                response_text = response_text.format(video_url=video_url)
-                                print(response_text)
-                                continue
-                            
+                            post_cost = get_post_cost(video_url)
+
                             user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
                             if user_lang=='en':
-                                approve_button_text = 'Approve'
-                                disapprove_button_text = 'Disapprove'
+                                approve_button_text = 'Accept'
+                                disapprove_button_text = 'Cancel'
                             elif user_lang=='ru':
                                 approve_button_text = 'Принять'
                                 disapprove_button_text = 'Отклонить'
+
+                            current_timestamp_str = str(time.time())
+
                             # Create inline keyboard with approve and disapprove buttons
                             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                                [InlineKeyboardButton(text=approve_button_text, callback_data=f'post_approve_to_{tg_channel_id}')],
-                                [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'post_disapprove')]])
+                                [InlineKeyboardButton(text=approve_button_text, callback_data=f'cost_approve_{current_timestamp_str}')],
+                                [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'cost_disapprove_{current_timestamp_str}')]])
+                            
+                            response_text = "[INFO] Converting this video '{video_url}' into a Telegram post will cost {post_cost} tokens. Do you agree?"
+                            user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
+                            if user_lang!='en':
+                                response_text = translate(response_text, user_lang)
+                            response_text = response_text.format(video_url=video_url, post_cost=post_cost)
 
-                            if 'post_img' in post_dict.keys():
-                                # Send image with a caption
-                                await bot.send_photo(
-                                        admin_group_id, 
-                                        BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
-                                        caption=post_dict['post_txt'], reply_markup=keyboard)
-                            else:
-                                await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard)
-
-                            await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
+                            new_pending_work(current_timestamp_str,video_url,post_cost,admin_group_id,tg_channel_id)
+                            await bot.send_message(admin_group_id, response_text, reply_markup=keyboard)
 
                         insert_new_video_urls(new_latest_video_urls)
 
@@ -598,6 +577,7 @@ async def run_bot() -> None:
     dp.callback_query.register(choose_img, lambda c: c.data.startswith('config_reference'))
     dp.callback_query.register(process_full_config, lambda c: c.data.startswith('config_img'))
     dp.callback_query.register(process_manual_VTP, lambda c: c.data.startswith('vtp'))
+    dp.callback_query.register(process_auto_VPT, lambda c: c.data.startswith('cost_'))
     
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())

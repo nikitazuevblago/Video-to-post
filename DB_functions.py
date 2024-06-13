@@ -141,7 +141,7 @@ def clear_up_db():
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
-        tables_to_drop = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS','PROJECT_ADMINS','TRANSACTIONS','USERS','POST_CONFIG','PROJECTS']
+        tables_to_drop = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS','TRANSACTIONS','USERS','POST_CONFIG','PROJECTS','PENDING_WORK']
         for table in tables_to_drop:
             try:
                 cur.execute(f"""DROP TABLE {table};""")
@@ -198,6 +198,15 @@ def create_db():
                                 user_id BIGINT,
                                 sum FLOAT,
                                 date TIMESTAMP
+                    );""")
+        conn.commit()
+
+        cur.execute(f"""CREATE TABLE IF NOT EXISTS PENDING_WORK (
+                                timestamp_str VARCHAR(50) PRIMARY KEY,
+                                video_url VARCHAR(250),
+                                post_cost BIGINT,
+                                admin_group_id BIGINT,
+                                tg_channel_id BIGINT
                     );""")
         conn.commit()
 
@@ -509,7 +518,7 @@ def get_projects(admin_group_id, table_name='PROJECTS'):
             return []
     
     except psycopg2.errors.OperationalError:
-        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        print('ERROR: cannot connect to PostgreSQL while get_projects()')
         return False
     
     finally:
@@ -529,7 +538,7 @@ def get_post_config(TG_channel_id, table_name='POST_CONFIG'):
         return config_lang, config_reference, img
     
     except psycopg2.errors.OperationalError:
-        print('ERROR: cannot connect to PostgreSQL while create_new_user()')
+        print('ERROR: cannot connect to PostgreSQL while get_post_config()')
         return False
     
     finally:
@@ -565,3 +574,74 @@ def get_user_lang(user_id, table_name='USERS'):
     finally:
         cur.close()
         conn.close()
+
+
+def new_pending_work(timestamp_str, video_url, post_cost, admin_group_id, tg_channel_id, table_name='PENDING_WORK'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        cur.execute(f"""INSERT INTO {table_name} (video_url, post_cost, admin_group_id, tg_channel_id, timestamp_str) 
+                    VALUES ('{video_url}', {post_cost}, {admin_group_id}, {tg_channel_id}, '{timestamp_str}');""")
+        conn.commit()
+        return True
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while new_pending_work()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_pendind_work_details(timestamp_str, table_name='PENDING_WORK'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        cur.execute(f"""SELECT * FROM {table_name} WHERE timestamp_str = '{timestamp_str}';""")
+        pending_work_row = cur.fetchall()
+        timestamp_str, video_url, post_cost, admin_group_id, tg_channel_id = pending_work_row[0]
+        return timestamp_str, video_url, post_cost, admin_group_id, tg_channel_id
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while get_pendind_work_details()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+
+
+def delete_pending_work(timestamp_str, table_name='PENDING_WORK'):
+    try:
+        # Establish db connection
+        conn = psycopg2.connect(**DB_config)
+        cur = conn.cursor()
+
+        cur.execute(f"""DELETE FROM {table_name} WHERE timestamp_str = '{timestamp_str}';;""")
+        conn.commit()
+        return True
+        
+    
+    except psycopg2.errors.OperationalError:
+        print('ERROR: cannot connect to PostgreSQL while delete_pending_work()')
+        return False
+    
+    finally:
+        cur.close()
+        conn.close()
+    
+
+# Not really works with my DB but works with TG DB, so...
+from aiogram.types import ChatMemberOwner
+async def get_chat_owner_id(chat_id):
+    chat_administrators = await bot.get_chat_administrators(chat_id)
+    for admin in chat_administrators:
+        if isinstance(admin, ChatMemberOwner):
+            owner_id = admin.user.id
+            return owner_id
+    raise ValueError('Could not find the owner :(')

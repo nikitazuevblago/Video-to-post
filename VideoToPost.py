@@ -2,11 +2,13 @@ import io
 from pytube import YouTube
 from lxml import etree
 import time
+import aiotube
 from os import getenv
 try:    
-    from secret_key import TEST_MODE
+    from secret_key import TEST_MODE, EXCHANGERATE_API
 except:
     TEST_MODE = int(getenv('TEST_MODE'))
+    EXCHANGERATE_API = int(getenv('EXCHANGERATE_API'))
 
 if TEST_MODE==1:
     try:    
@@ -105,7 +107,8 @@ def detect_language(text, provider='google'):
         raise ValueError(provider_result)
 
 # Summarize trascription
-def get_summary(transcription:str, words_amount:int=150, light_model:str='gpt-3.5-turbo', heavy_model:str='gpt-4o', post_lang='en'):
+def get_summary(transcription:str, post_lang='en', words_amount:int=150,
+                light_model:str='gpt-3.5-turbo', heavy_model:str='gpt-4o', max_tokens=350):
     url = "https://api.edenai.run/v2/text/chat"
 
     transcription_length = len(transcription.split())
@@ -137,7 +140,7 @@ def get_summary(transcription:str, words_amount:int=150, light_model:str='gpt-3.
         "chatbot_global_action": prompt,
         "previous_history": [],
         "temperature": 0.0,
-        "max_tokens": 350,
+        "max_tokens": max_tokens,
         "model": model
     }
     response = requests.post(url, json=payload, headers=headers)
@@ -292,6 +295,65 @@ def VideoToPost(link, post_lang='en', reference=False, post_img=False):
         return post_name, overall_post
     else:
         raise ValueError("Couldn't get text for the post!")
+
+
+# Additional functions before VideoToPost()
+def usd_rub_rate(api_key):
+    base_currency = 'USD'
+    target_currency = 'RUB'
+    url = f'https://v6.exchangerate-api.com/v6/{api_key}/latest/{base_currency}'
+    response = requests.get(url)
+    data = response.json()
+    if response.status_code == 200:
+        exchange_rate = data['conversion_rates'][target_currency]
+        return exchange_rate
+    else:
+        raise Exception("Error fetching exchange rate data: " + data['error-type'])
+    
+
+def get_post_cost(link):
+    yt = MyYouTube(link)
+    clients = ['ANDROID', 'IOS', 'WEB_EMBED', 'ANDROID_EMBED', 'IOS_EMBED', 'WEB_MUSIC', 'ANDROID_MUSIC',
+               'IOS_MUSIC', 'WEB_CREATOR', 'WEB', 'ANDROID_CREATOR', 'IOS_CREATOR', 'MWEB', 'TV_EMBED']
+    for client in clients:
+        try:
+            # I modified the function bypass_age_gate() in pytube/__main__
+            yt.bypass_age_gate(client=client)
+            print(f'Bypassed YouTube age gate with "{client}" as a client')
+            break
+        except:
+            pass
+    all_captions = {caption.code for caption in yt.captions}
+    accepted_captions = {'a.en','en','ru'} & all_captions
+    if len(accepted_captions)<1:
+        # Price is calculated in dollars!
+        whisper_per_second_price = 0.006/60
+        speech_to_text_price = yt.length * whisper_per_second_price
+
+        # Details for summarization_price
+        gpt40_per_token_price = 0.015/1000
+        max_summary_tokens = 350
+
+        summarization_price = max_summary_tokens * gpt40_per_token_price
+        manufacturing_cost = speech_to_text_price+summarization_price
+    else:
+        # Details for summarization_price
+        gpt40_per_token_price = 0.015/1000
+        max_summary_tokens = 350
+
+        summarization_price = max_summary_tokens * gpt40_per_token_price
+        manufacturing_cost = summarization_price
+    
+    # Return the "market price" in rubles with multiplier of 10
+    market_price = round(usd_rub_rate(EXCHANGERATE_API)*manufacturing_cost*10,2)
+
+    # Minimal market_price is 20 rubles
+    minimal_market_price = 20
+    if market_price<minimal_market_price:
+        market_price = minimal_market_price
+    return market_price
+
+
 
 #link = 'https://youtu.be/jNQXAC9IVRw?si=gjx36t0J7pZtvDyd' # with subtitles
 #link = 'https://youtu.be/GC80Dk7eg_A?si=n9pIQh0f_A-zVbA_' # with generative subtitles

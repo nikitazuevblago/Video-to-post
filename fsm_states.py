@@ -19,3 +19,4 @@ class post_config_FORM(StatesGroup):
     lang = State()
     reference = State()
     img = State()
+

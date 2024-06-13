@@ -1,3 +1,4 @@
+import asyncio
 from aiogram.types import CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 from aiogram.fsm.state import State, StatesGroup
@@ -275,6 +276,9 @@ async def process_full_config(callback:CallbackQuery, state:FSMContext):
 
 @dp.message(video_to_post_FORM.tg_channel_id)
 async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=False):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback.answer(cache_time=12)
+
     TG_channel_id = callback.data.replace('vtp_','')
 
     # Edit the message to remove the inline keyboard
@@ -320,4 +324,76 @@ async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=Fa
                 caption=post_dict['post_txt'], reply_markup=keyboard)
     else:
         await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard)
+
+
+async def process_auto_VPT(callback:CallbackQuery):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback.answer(cache_time=12)
+
+    # Edit the message to remove the inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    # Extract the callback data
+    _, action, timestamp_str = callback.data.split('_')
+
+    try:
+        if action == 'approve':
+            # Get the pending work details
+            timestamp_str, video_url, post_cost, admin_group_id, tg_channel_id = get_pendind_work_details(timestamp_str)
+
+            user_id = callback.from_user.id
+            user_balance = get_user_balance(user_id)
+            if post_cost>user_balance:
+                response_text = "[ERROR] - You don't have enough tokens! Your balance is {user_balance}"
+                user_lang = get_user_lang(user_id)
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                response_text = response_text.format(user_balance=user_balance)
+                await bot.send_message(admin_group_id, response_text)
+                return False
+
+            config_lang, config_reference, config_img = get_post_config(tg_channel_id)
+
+            try:
+                post_name, post_dict = VideoToPost(video_url, post_lang=config_lang, reference=config_reference, post_img=config_img) 
+            except ValueError as e:
+                raise ValueError(e)
+            except:
+                response_text = '[ERROR]: video url did not pass VideoToPost \n"{video_url}"'
+                user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
+                if user_lang!='en':
+                    response_text = translate(response_text, user_lang)
+                response_text = response_text.format(video_url=video_url)
+                await bot.send_message(admin_group_id,response_text)
+                return False
+
+            user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
+            if user_lang=='en':
+                approve_button_text = 'Approve'
+                disapprove_button_text = 'Disapprove'
+            elif user_lang=='ru':
+                approve_button_text = 'Принять'
+                disapprove_button_text = 'Отклонить'
+            # Create inline keyboard with approve and disapprove buttons
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=approve_button_text, callback_data=f'post_approve_to_{tg_channel_id}')],
+                [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'post_disapprove')]])
+
+            if 'post_img' in post_dict.keys():
+                # Send image with a caption
+                await bot.send_photo(
+                        admin_group_id, 
+                        BufferedInputFile(post_dict['post_img'], filename=f"{post_name}.jpeg"),
+                        caption=post_dict['post_txt'], reply_markup=keyboard)
+
+            else:
+                await bot.send_message(admin_group_id, post_dict['post_txt'], reply_markup=keyboard)
+            
+            # Interaction with DB
+            add_new_transaction(user_id, sum=post_cost)
+            create_or_update_user(user_id, balance=user_balance-post_cost)
+
+            await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
+    finally:
+        delete_pending_work(timestamp_str)
         

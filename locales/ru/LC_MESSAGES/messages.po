@@ -126,3 +126,9 @@ msgstr "ОШИБКА: url видео не прошел VideoToPost '{yt_link}'. 
 
 msgid "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
 msgstr "Привет! Я бот, созданный для конвертации видео с YouTube в посты в Telegram!"
+
+msgid "[INFO] Converting this video '{video_url}' into a Telegram post will cost {post_cost} tokens. Do you agree?"
+msgstr "[INFO] Конвертация этого видео '{video_url}' в TG пост будет стоить {post_cost} токенов. Вы согласны?"
+
+msgid "[ERROR] - You don't have enough tokens! Your balance is {user_balance}"
+msgstr "[ERROR] - У вас недостаточно токенов! Ваш баланс составляет {user_balance}"
