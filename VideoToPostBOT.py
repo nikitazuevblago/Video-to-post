@@ -164,7 +164,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=5, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=60, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
@@ -192,11 +192,18 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                                 response_text = response_text.format(video_url=video_url)
                                 print(response_text)
                                 continue
-
+                            
+                            user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
+                            if user_lang=='en':
+                                approve_button_text = 'Approve'
+                                disapprove_button_text = 'Disapprove'
+                            elif user_lang=='ru':
+                                approve_button_text = 'Принять'
+                                disapprove_button_text = 'Отклонить'
                             # Create inline keyboard with approve and disapprove buttons
                             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                                [InlineKeyboardButton(text='Approve', callback_data=f'post_approve_to_{tg_channel_id}')],
-                                [InlineKeyboardButton(text='Disapprove', callback_data=f'post_disapprove')]])
+                                [InlineKeyboardButton(text=approve_button_text, callback_data=f'post_approve_to_{tg_channel_id}')],
+                                [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'post_disapprove')]])
 
                             if 'post_img' in post_dict.keys():
                                 # Send image with a caption
@@ -252,7 +259,6 @@ async def set_help_menu():
         BotCommand(command="/set_language", description="Choose the language"),
         BotCommand(command="/help", description="Get instructions on how to use the bot"),
         BotCommand(command="/new_channels", description="Track new YouTube channels to get posts automatically"),
-        BotCommand(command="/process_video_url", description="Convert a YouTube video URL into telegram post manually"),
         BotCommand(command="/post_config", description="Post settings aimed on certain TG channel"),
         BotCommand(command="/top_up", description="Top up your balance"),
         BotCommand(command="/balance", description="Check balance"),
@@ -274,7 +280,7 @@ async def video_to_post(message:Message, state:FSMContext):
         assert len(message_parts)==2
         yt_link = message_parts[1]
     except:
-        response_text = 'Enter the command with link without nothing else!\nExample: "/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"'
+        response_text = "Enter the command with link without nothing else!\nExample: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -413,7 +419,7 @@ async def process_tg_channel(message: Message, state: FSMContext):
 async def get_group_id(message: Message):
     if message.chat.type in ['group', 'supergroup']:
         chat_id = message.chat.id
-        response_text = "ID of this group: {chat_id}" # Change this in messages.po, changed from message.chat.id to chat_id
+        response_text = "ID of this group: {chat_id}"
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -450,7 +456,7 @@ async def top_up_balance(message: Message):
         assert len(message_parts)==2
         amount = int(message_parts[1])
     except:
-        response_text = 'Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: "/top_up 100"'
+        response_text = "Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: '/top_up 100'"
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -549,7 +555,7 @@ async def new_channels(message: Message):
                 await bot.send_message(chat_id, response_text, reply_markup=builder.as_markup())
 
             else:
-                response_text = 'No TG channels attached to admin group with id {chat_id}!' # CHANGE string IN messages.po and recompile messages.mo
+                response_text = "No TG channels attached to admin group with id {chat_id}!"
                 user_lang = get_user_lang(message.from_user.id)
                 if user_lang!='en':
                     response_text = translate(response_text, user_lang)

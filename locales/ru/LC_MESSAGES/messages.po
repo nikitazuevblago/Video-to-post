@@ -52,8 +52,8 @@ msgstr "[INFO] Проект {channel_name} был создан!..."
 msgid "The new project HASN'T been created!\nP.s. Frequent errors - 1. Project already exists (/check_projects) 2. Letters in 'Admin group id' or 'TG channel id'"
 msgstr "Новый проект НЕ был создан!\nP.s. Частые ошибки - 1. Проект уже существует (/check_projects) 2. Буквы в 'ID админ-группы' или 'ID канала TG'"
 
-msgid "ID of this group: {message.chat.id}"
-msgstr "ID этой группы: {message.chat.id}"
+msgid "ID of this group: {chat_id}"
+msgstr "ID этой группы: {chat_id}"
 
 msgid "This command can only be used in a group or supergroup."
 msgstr "Эту команду можно использовать только в группе или супергруппе."
@@ -73,8 +73,8 @@ msgstr "Эта админ-группа связана с этими проект
 msgid "Pick to which TG channel attach new YT channels"
 msgstr "Выберите, к какому каналу TG прикрепить новые каналы YouTube"
 
-msgid "No TG channels attached to admin group with id {message.chat.id}!"
-msgstr "Нет каналов TG, прикрепленных к админ-группе с id {message.chat.id}!"
+msgid "No TG channels attached to admin group with id {chat_id}!"
+msgstr "Нет каналов TG, прикрепленных к админ-группе с id {chat_id}!"
 
 msgid "{user_name} approved the post."
 msgstr "{user_name} одобрил пост."
@@ -97,11 +97,11 @@ msgstr "Введите каналы без @, разделенные запят�
 msgid "Separate channels by comma! Try /new_channels again."
 msgstr "Разделите каналы запятыми! Попробуйте /new_channels снова."
 
-msgid "The YT channels {new_YT_channels} have been linked to {data['chosen_tg_channel_name']}!"
-msgstr "Каналы YouTube {new_YT_channels} были связаны с {data['chosen_tg_channel_name']}!"
+msgid "The YT channels {new_YT_channels} have been linked to {chosen_tg_channel_name}!"
+msgstr "Каналы YouTube {new_YT_channels} были связаны с {chosen_tg_channel_name}!"
 
-msgid "The YT channels {new_YT_channels} have NOT been linked to {data['chosen_tg_channel_name']}!"
-msgstr "Каналы YouTube {new_YT_channels} НЕ были связаны с {data['chosen_tg_channel_name']}!"
+msgid "The YT channels {new_YT_channels} have NOT been linked to {chosen_tg_channel_name}!"
+msgstr "Каналы YouTube {new_YT_channels} НЕ были связаны с {chosen_tg_channel_name}!"
 
 msgid "Linking the new config to {tg_channel_name}"
 msgstr "Привязка новой конфигурации к {tg_channel_name}"

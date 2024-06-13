@@ -85,14 +85,14 @@ async def process_new_channels(callback_query: CallbackQuery, state: FSMContext)
     # Edit the message to remove the inline keyboard
     await callback_query.message.edit_reply_markup(reply_markup=None)
 
-    response_text = 'Linking tracking of new YouTube channels to "{chosen_tg_channel_name}"'
+    response_text = "Linking tracking of new YouTube channels to '{chosen_tg_channel_name}'"
     user_lang = get_user_lang(callback_query.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
     response_text = response_text.format(chosen_tg_channel_name=chosen_tg_channel_name)
     await callback_query.message.reply(response_text)
     await state.set_state(new_channels_FORM.new_YT_channels)
-    response_text = 'Enter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino'
+    response_text = "Enter the channels without @ separated by commas (no need for commas for 1 channel)\nFor example: ImanGadzhi,childishgambino"
     user_lang = get_user_lang(callback_query.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
@@ -104,7 +104,7 @@ async def process_name(message: Message, state: FSMContext):
     try:
         new_YT_channels = message.text.split(',')
     except:
-        response_text = 'Separate channels by comma! Try /new_channels again.'
+        response_text = "Separate channels by comma! Try /new_channels again."
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -114,9 +114,9 @@ async def process_name(message: Message, state: FSMContext):
     chosen_tg_channel_name = data["chosen_tg_channel_name"]
     response = link_new_YT_channels(data['chosen_tg_channel_id'], new_YT_channels)
     if response:
-        response_text = 'The YT channels {new_YT_channels} have been linked to {chosen_tg_channel_name}!' # CHANGE IN messages.po and messages.mo
+        response_text = "The YT channels {new_YT_channels} have been linked to {chosen_tg_channel_name}!" 
     else:
-        response_text = 'The YT channels {new_YT_channels} have NOT been linked to {chosen_tg_channel_name}!' # CHANGE IN messages.po and messages.mo
+        response_text = "The YT channels {new_YT_channels} have NOT been linked to {chosen_tg_channel_name}!"
     
     user_lang = get_user_lang(message.from_user.id)
     if user_lang!='en':
@@ -172,15 +172,22 @@ async def choose_reference(callback:CallbackQuery, state:FSMContext):
     # Get the data from callback
     config_lang = callback.data.replace('config_lang_','')
 
+    user_lang = get_user_lang(callback.from_user.id)
+    if user_lang=='en':
+        yes_text = 'Yes'
+        no_text = 'No'
+    elif user_lang=='ru':
+        yes_text = 'Да'
+        no_text = 'Нет'
+
     # Define keyboard for name choices
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text='Yes', callback_data=f'config_reference_yes')],
-                    [InlineKeyboardButton(text='No', callback_data=f'config_reference_no')]])
+                    [InlineKeyboardButton(text=yes_text, callback_data=f'config_reference_yes')],
+                    [InlineKeyboardButton(text=no_text, callback_data=f'config_reference_no')]])
 
     await state.update_data(config_lang=config_lang)
     await state.set_state(post_config_FORM.reference)
     response_text = "Choose whether to reference the YT author"
-    user_lang = get_user_lang(callback.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
     await callback.message.reply(response_text, reply_markup=keyboard)
@@ -202,16 +209,23 @@ async def choose_img(callback:CallbackQuery, state:FSMContext):
         config_reference = False
     else:
         raise ValueError(f'Config reference parameter "{config_reference}" is wrong!')
+    
+    user_lang = get_user_lang(callback.from_user.id)
+    if user_lang=='en':
+        yes_text = 'Yes'
+        no_text = 'No'
+    elif user_lang=='ru':
+        yes_text = 'Да'
+        no_text = 'Нет'
 
     # Define keyboard for name choices
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text='Yes', callback_data=f'config_img_yes')],
-                    [InlineKeyboardButton(text='No', callback_data=f'config_img_no')]])
+                    [InlineKeyboardButton(text=yes_text, callback_data=f'config_img_yes')],
+                    [InlineKeyboardButton(text=no_text, callback_data=f'config_img_no')]])
 
     await state.update_data(config_reference=config_reference)
     await state.set_state(post_config_FORM.img)
     response_text = "Include the YT banner?\nP.s. It will serve as the post's image"
-    user_lang = get_user_lang(callback.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
     await callback.message.reply(response_text, reply_markup=keyboard)
@@ -277,7 +291,7 @@ async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=Fa
     except ValueError as e:
         raise ValueError(e)
     except Exception as e:
-        response_text = 'ERROR: video url did not pass VideoToPost "{yt_link}". Details - {e}'
+        response_text = "ERROR: video url did not pass VideoToPost '{yt_link}'. Details - {e}"
         user_lang = get_user_lang(callback.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -285,10 +299,18 @@ async def process_manual_VTP(callback:CallbackQuery, state:FSMContext, yt_api=Fa
         await bot.send_message(admin_group_id, response_text)
         return False
     
+    user_lang = get_user_lang(callback.from_user.id)
+    if user_lang=='en':
+        approve_button_text = 'Approve'
+        disapprove_button_text = 'Disapprove'
+    elif user_lang=='ru':
+        approve_button_text = 'Принять'
+        disapprove_button_text = 'Отклонить'
+    
     # Create inline keyboard with approve and disapprove buttons
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='Approve', callback_data=f'post_approve_to_{TG_channel_id}')],
-        [InlineKeyboardButton(text='Disapprove', callback_data=f'post_disapprove')]])
+        [InlineKeyboardButton(text=approve_button_text, callback_data=f'post_approve_to_{TG_channel_id}')],
+        [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'post_disapprove')]])
 
     if 'post_img' in post_dict.keys():
         # Send image with a caption
