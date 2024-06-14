@@ -69,7 +69,7 @@ def parse_duration(duration):
     return total_seconds
 
 
-async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels, yt_api=False, min_duration=60, max_duration=5000):
+async def check_new_videos(tg_channel_id, admin_group_id, yt_channel_urls, tracked_yt_channels, yt_api=False, min_duration=60, max_duration=5000):
     new_latest_videos = set() # creator:video_url
     bad_creators = set()
 
@@ -97,14 +97,14 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                     new_video_url = f"https://www.youtube.com/watch?v={video_id}"
                     new_latest_videos.add(new_video_url)
                 elif video_duration<min_duration:
-                    response_text = '[INFO] The last video of {yt_author} was SHORTS(too short)'
+                    response_text = "[INFO] The last video of {yt_author} was SHORTS(too short)"
                     user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
                     if user_lang!='en':
                         response_text = translate(response_text, user_lang)
                     response_text = response_text.format(yt_author=yt_author)
                     await bot.send_message(admin_group_id, response_text)
                 else:
-                    response_text = '[INFO] The last video of {yt_author} was PODCAST(too long)'
+                    response_text = "[INFO] The last video of {yt_author} was PODCAST(too long)"
                     user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
                     if user_lang!='en':
                         response_text = translate(response_text, user_lang)
@@ -112,7 +112,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                     await bot.send_message(admin_group_id, response_text)
                     
             except:
-                response_text = '[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> "{response}"'
+                response_text = "[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> {response}"
                 user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
                 if user_lang!='en':
                     response_text = translate(response_text, user_lang)
@@ -156,7 +156,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
                 await bot.send_message(admin_group_id, response_text)
                 bad_creators.add(yt_author)
 
-    used_video_urls = get_used_video_urls()
+    used_video_urls = get_used_video_urls(tg_channel_id)
     new_latest_video_urls = new_latest_videos - used_video_urls
     return new_latest_video_urls, bad_creators
 
@@ -171,7 +171,7 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                 if len(tracked_yt_channels)>0:
                     yt_channel_urls = [f'https://www.youtube.com/c/{channel}' for channel in tracked_yt_channels]
                     print(f"\n{'-'*15}New check cycle{'-'*15}")
-                    new_latest_video_urls, bad_creators = await check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels) # channel:video_url
+                    new_latest_video_urls, bad_creators = await check_new_videos(tg_channel_id, admin_group_id, yt_channel_urls, tracked_yt_channels) # channel:video_url
                     
                     if len(new_latest_video_urls)>0:
                         for video_url in new_latest_video_urls:
@@ -192,7 +192,7 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                                 [InlineKeyboardButton(text=approve_button_text, callback_data=f'cost_approve_{current_timestamp_str}')],
                                 [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'cost_disapprove_{current_timestamp_str}')]])
                             
-                            response_text = "[INFO] Converting this video '{video_url}' into a Telegram post will cost {post_cost} tokens. Do you agree?"
+                            response_text = "[INFO] Converting this video {video_url} into a Telegram post will cost {post_cost} tokens. Do you agree?"
                             user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
                             if user_lang!='en':
                                 response_text = translate(response_text, user_lang)
@@ -201,7 +201,7 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
                             new_pending_work(current_timestamp_str,video_url,post_cost,admin_group_id,tg_channel_id)
                             await bot.send_message(admin_group_id, response_text, reply_markup=keyboard)
 
-                        insert_new_video_urls(new_latest_video_urls)
+                        insert_new_video_urls(new_latest_video_urls, tg_channel_id)
 
                     if delete_bad_creators:
                         if len(bad_creators)>0:
@@ -250,14 +250,53 @@ async def set_help_menu():
         BotCommand(command="/check_transactions", description="Get the table with your previous transactions"),
         BotCommand(command="/check_projects", description="Get linked to admin group TG channels"),
         BotCommand(command="/support", description="Contact the creator"),
-        BotCommand(command="/create_project", description="Project is a combo of (name,admin_group,tg_channel)"),
+        BotCommand(command="/create_project", description="Project is a combo of admin group and target TG channel)"),
         BotCommand(command="/get_group_id", description="Add bot to admin/destination tg channel and get id"),
         BotCommand(command="/video_to_post", description="Manually get the tg post from YT video")
     ]
     await bot.set_my_commands(commands)
 
 
-# ADD VIDEO_URL TO USED_VIDEO_URLS!!
+@dp.message(Command('help'))
+async def help(message:Message):
+    # response_text = "**Welcome to VideoToPostBOT!** 🤖\n\n**Intro**\nThis bot is created to automatically convert videos from YouTube to Telegram posts\nFirst, you need to create the project with /create_project. By itself the project it's a combination of the admin group and target telegram channel.\nSecond, you need to add the bot to admin group and telegram channel. Make the bot admin.\n\n* Admin group - telegram group with admins where they can accept or decline posts created by AI.\n* Target telegram channel - telegram channel with all accepted posts.\n* One admin group can have many linked telegram channels!\n\n\nHere are the commands you can use:\n\n**General Commands:**\n/set_language - Choose the language.\n/help - Get instructions on how to use the bot.\n\n**Channel Management:**\n/new_channels - Track new YouTube channels to get posts automatically.\n/post_config - Post settings aimed at a certain Telegram channel.\n/create_project - Project is a combo of admin group and target Telegram channel.\n/get_group_id - Add bot to the group to get its ID.\n/video_to_post - Manually get the Telegram post from a YouTube video.\n\n**Financial Commands:**\n/top_up - Top up your balance.\n/balance - Check your balance.\n/check_transactions - Get a table with your previous transactions.\n\n**Project and Group Management:**\n/check_projects - Get linked to admin group Telegram channels.\n\n**Support:**\n/support - Contact the creator.\n\nFor any further assistance, feel free to reach out to our support team. Enjoy using VideoToPostBOT! 😊"
+    # user_lang = get_user_lang(message.from_user.id)
+    # if user_lang!='en':
+    #     response_text = translate(response_text, user_lang)
+    response_text = (
+    "**Welcome to VideoToPostBOT\\!** 🤖\n\n"
+    "**Intro**\n"
+    "This bot is created to automatically convert videos from YouTube to Telegram posts\\.\n"
+    "First, you need to create the project with /create\\_project\\. By itself, the project is a combination of the admin group and target telegram channel\\.\n"
+    "Second, you need to add the bot to the admin group and telegram channel\\. Make the bot admin\\.\n\n"
+    "* Admin group \\- telegram group with admins where they can accept or decline posts created by AI\\.\n"
+    "* Target telegram channel \\- telegram channel with all accepted posts\\.\n"
+    "* One admin group can have many linked telegram channels\\!\\n\n"
+    "Here are the commands you can use\\:\n\n"
+    "**General Commands\\:**\n"
+    "/set\\_language \\- Choose the language\\.\n"
+    "/help \\- Get instructions on how to use the bot\\.\n\n"
+    "**Channel Management\\:**\n"
+    "/new\\_channels \\- Track new YouTube channels to get posts automatically\\.\n"
+    "/post\\_config \\- Post settings aimed at a certain Telegram channel\\.\n"
+    "/create\\_project \\- Project is a combo of admin group and target Telegram channel\\.\n"
+    "/get\\_group\\_id \\- Add bot to the group to get its ID\\.\n"
+    "/video\\_to\\_post \\- Manually get the Telegram post from a YouTube video\\.\n\n"
+    "**Financial Commands\\:**\n"
+    "/top\\_up \\- Top up your balance\\.\n"
+    "/balance \\- Check your balance\\.\n"
+    "/check\\_transactions \\- Get a table with your previous transactions\\.\n\n"
+    "**Project and Group Management\\:**\n"
+    "/check\\_projects \\- Get linked to admin group Telegram channels\\.\n\n"
+    "**Support\\:**\n"
+    "/support \\- Contact the creator\\.\n\n"
+    "For any further assistance, feel free to reach out to our support team\\. Enjoy using VideoToPostBOT\\! 😊"
+)
+
+
+    await message.reply(response_text, parse_mode=ParseMode.MARKDOWN_V2)
+
+
 @dp.message(Command('video_to_post'))
 async def video_to_post(message:Message, state:FSMContext):
     try:
@@ -265,7 +304,7 @@ async def video_to_post(message:Message, state:FSMContext):
         assert len(message_parts)==2
         yt_link = message_parts[1]
     except:
-        response_text = "Enter the command with link without nothing else!\nExample: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
+        response_text = "Enter the command with link without nothing else!\nExample: /video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -440,9 +479,9 @@ async def top_up_balance(message: Message):
         message_parts = message.text.strip().split()
         assert len(message_parts)==2
         amount = int(message_parts[1])
-        assert amount>=100
+        assert amount>=100 and amount<=1000
     except:
-        response_text = "Enter the amount of tokens after /top_up, no letters, no spaces! Minimum amount - 100 rub\nExample: '/top_up 100'"
+        response_text = "Enter the amount of tokens after /top_up, no letters, no spaces! Range of allowed sum from 100 to 1000 rub\nExample: /top_up 100"
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
@@ -512,11 +551,12 @@ async def process_successful_payment(message:Message):
     add_new_transaction(user_id, amount, action='top_up')
     balance = get_user_balance(user_id)
 
-    response_text = "You added {amount} tokens to the balance! Current balance is {balance} tokens"
+    user_name = message.from_user.full_name
+    response_text = "{user_name} added {amount} tokens to the balance! Current balance is {balance} tokens"
     user_lang = get_user_lang(message.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
-    response_text = response_text.format(amount=amount, balance=balance)
+    response_text = response_text.format(user_name=user_name,amount=amount, balance=balance)
     await bot.send_message(int(chat_id), response_text)
 
 

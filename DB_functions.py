@@ -90,13 +90,13 @@ def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
         conn.close()
 
 
-def get_used_video_urls(table_name='USED_VIDEO_URLS') -> set:
+def get_used_video_urls(TG_channel_id, table_name='USED_VIDEO_URLS') -> set:
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
         try:
-            cur.execute(f"""SELECT video_url FROM {table_name};""")
+            cur.execute(f"""SELECT video_url FROM {table_name} WHERE TG_channel_id = {TG_channel_id};""")
             video_urls_postgres = cur.fetchall()
             used_video_urls = {url_tuple[0] for url_tuple in video_urls_postgres}
             return used_video_urls
@@ -112,14 +112,14 @@ def get_used_video_urls(table_name='USED_VIDEO_URLS') -> set:
         conn.close()
 
 
-def insert_new_video_urls(new_video_urls, table_name='USED_VIDEO_URLS'):
+def insert_new_video_urls(new_video_urls, TG_channel_id, table_name='USED_VIDEO_URLS'):
     try:
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
         for video_url in new_video_urls:
             try:
-                cur.execute(f"""INSERT INTO {table_name} (video_url) VALUES ('{video_url}');""")
+                cur.execute(f"""INSERT INTO {table_name} (video_url, TG_channel_id) VALUES ('{video_url}', {TG_channel_id});""")
                 conn.commit()
             except psycopg2.errors.UniqueViolation:
                 conn.rollback()
@@ -162,15 +162,17 @@ def create_db():
         # Establish db connection
         conn = psycopg2.connect(**DB_config)
         cur = conn.cursor()
-        cur.execute(f"""CREATE TABLE IF NOT EXISTS USED_VIDEO_URLS (
-                                video_url VARCHAR(255) PRIMARY KEY);""")
-        conn.commit()
-        
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS PROJECTS (
                             TG_channel_name VARCHAR(25) UNIQUE,
                             admin_group_id BIGINT,
                             TG_channel_id BIGINT PRIMARY KEY);""")
+        conn.commit()
+
+        cur.execute(f"""CREATE TABLE IF NOT EXISTS USED_VIDEO_URLS (
+                                video_url VARCHAR(255),
+                                TG_channel_id BIGINT REFERENCES PROJECTS(TG_channel_id) ON DELETE CASCADE,
+                                PRIMARY KEY (video_url, TG_channel_id));""")
         conn.commit()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS POST_CONFIG (

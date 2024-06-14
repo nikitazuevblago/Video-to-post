@@ -4,14 +4,14 @@ msgstr "[INFO] Последнее видео {yt_author} было КОРОТКИ
 msgid "[INFO] The last video of {yt_author} was PODCAST(too long)"
 msgstr "[INFO] Последнее видео {yt_author} было ПОДКАСТОМ (слишком длинное)"
 
-msgid "[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> '{response}'"
-msgstr "[INFO] Проблема с создателем {yt_author};\nRequests.get(url) ответ -> '{response}'"
+msgid "[INFO] Trouble with the creator {yt_author};\nRequests.get(url) response -> {response}"
+msgstr "[INFO] Проблема с создателем {yt_author};\nRequests.get(url) ответ -> {response}"
 
 msgid "[INFO] Trouble with the creator {yt_author}; Exception: {e} (AIOTUBE)"
 msgstr "[INFO] Проблема с создателем {yt_author}; Исключение: {e} (AIOTUBE)"
 
-msgid "[ERROR]: video url did not pass VideoToPost \n'{video_url}'"
-msgstr "[ERROR]: url видео не прошел VideoToPost \n'{video_url}'"
+msgid "[ERROR]: video url did not pass VideoToPost \n{video_url}"
+msgstr "[ERROR]: url видео не прошел VideoToPost \n{video_url}"
 
 msgid "\n{'*'*15}Removing creators from which we couldn't retrieve the video{'*'*15}"
 msgstr "\n{'*'*15}Удаление создателей, от которых не удалось получить видео{'*'*15}"
@@ -22,8 +22,8 @@ msgstr "[INFO] Отслеживаемых каналов YouTube нет! Авт�
 msgid "[INFO] There are 0 projects! Auto post suggesting doesn't work..."
 msgstr "[INFO] Проектов нет! Автоматическое предложение постов не работает..."
 
-msgid "Enter the command with link without nothing else!\nExample: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
-msgstr "Введите команду со ссылкой без ничего лишнего!\nПример: '/video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'"
+msgid "Enter the command with link without nothing else!\nExample: /video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"
+msgstr "Введите команду со ссылкой без ничего лишнего!\nПример: /video_to_post https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5"
 
 msgid "Select the Telegram channel where you want to send the post"
 msgstr "Выберите Telegram-канал, куда хотите отправить пост"
@@ -61,11 +61,8 @@ msgstr "Эту команду можно использовать только �
 msgid "You have {balance} tokens"
 msgstr "У вас {balance} токенов"
 
-msgid "Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: '/top_up 100'"
-msgstr "Введите количество токенов после /top_up, без букв и пробелов!\nПример: '/top_up 100'"
-
-msgid "You added {amount} tokens to the balance! Current balance is {balance} tokens"
-msgstr "Вы добавили {amount} токенов на баланс! Текущий баланс составляет {balance} токенов"
+msgid "{user_name} added {amount} tokens to the balance! Current balance is {balance} tokens"
+msgstr "{user_name} добавили {amount} токенов на баланс! Текущий баланс составляет {balance} токенов"
 
 msgid "This admin group is linked to these projects {project_names}"
 msgstr "Эта админ-группа связана с этими проектами {project_names}"
@@ -121,14 +118,14 @@ msgstr "Конфигурация была изменена!"
 msgid "Config has NOT been changed!"
 msgstr "Конфигурация НЕ была изменена!"
 
-msgid "ERROR: video url did not pass VideoToPost '{yt_link}'. Details - {e}"
-msgstr "ОШИБКА: url видео не прошел VideoToPost '{yt_link}'. Подробности - {e}"
-
 msgid "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
 msgstr "Привет! Я бот, созданный для конвертации видео с YouTube в посты в Telegram!"
 
 msgid "[INFO] Converting this video into a Telegram post will cost {post_cost} tokens. Do you agree?"
 msgstr "[INFO] Конвертация этого видео в TG пост будет стоить {post_cost} токенов. Вы согласны?"
+
+msgid "[INFO] Converting this video {video_url} into a Telegram post will cost {post_cost} tokens. Do you agree?"
+msgstr "[INFO] Конвертация этого видео {video_url} в TG пост будет стоить {post_cost} токенов. Вы согласны?"
 
 msgid "[ERROR] - You don't have enough tokens! Your balance is {user_balance}"
 msgstr "[ERROR] - У вас недостаточно токенов! Ваш баланс составляет {user_balance}"
@@ -138,3 +135,9 @@ msgstr "Пополнение баланса"
 
 msgid "The action is canceled!"
 msgstr "Действие отменено!"
+
+msgid "Enter the amount of tokens after /top_up, no letters, no spaces! Range of allowed sum from 100 to 1000 rub\nExample: /top_up 100"
+msgstr "Введите количество токенов после /top_up, без букв и пробелов! Допустимая сумма пополнения от 100 до 1000 рублей.\nПример: /top_up 100"
+
+msgid "**Welcome to VideoToPostBOT!** 🤖\n\n**Intro**\nThis bot is created to automatically convert videos from YouTube to Telegram posts\nFirst, you need to create the project with /create_project. By itself the project it's a combination of the admin group and target telegram channel.\nSecond, you need to add the bot to admin group and telegram channel. Make the bot admin.\n\n* Admin group - telegram group with admins where they can accept or decline posts created by AI.\n* Target telegram channel - telegram channel with all accepted posts.\n* One admin group can have many linked telegram channels!\n\n\nHere are the commands you can use:\n\n**General Commands:**\n/set_language - Choose the language.\n/help - Get instructions on how to use the bot.\n\n**Channel Management:**\n/new_channels - Track new YouTube channels to get posts automatically.\n/post_config - Post settings aimed at a certain Telegram channel.\n/create_project - Project is a combo of admin group and target Telegram channel.\n/get_group_id - Add bot to the group to get its ID.\n/video_to_post - Manually get the Telegram post from a YouTube video.\n\n**Financial Commands:**\n/top_up - Top up your balance.\n/balance - Check your balance.\n/check_transactions - Get a table with your previous transactions.\n\n**Project and Group Management:**\n/check_projects - Get linked to admin group Telegram channels.\n\n**Support:**\n/support - Contact the creator.\n\nFor any further assistance, feel free to reach out to our support team. Enjoy using VideoToPostBOT! 😊"
+msgstr "**Приветствуем в VideoToPostBOT!** 🤖\n\n**Intro**\nЭтот бот создан для автоматического преобразования видео с YouTube в посты Telegram\nВо-первых, вам нужно создать проект с помощью /create_project. Сам по себе проект это комбинация админ группы и целевого телеграм-канала.\nВо-вторых, вам нужно добавить бота в админ группу и телеграм-канал. Сделайте бота администратором.\n\n* Админ группа - телеграм-группа с администраторами, где они могут одобрять или отклонять посты, созданные ИИ.\n* Целевой телеграм-канал - телеграм-канал со всеми одобренными постами.\n* Одна телеграм группа может иметь много привязанных телеграм-каналов!\n\n\nВот команды, которые вы можете использовать:\n\n**Общие команды:**\n/set_language - Выбрать язык.\n/help - Получить инструкции по использованию бота.\n\n**Управление каналами:**\n/new_channels - Отслеживать новые YouTube-каналы для автоматического получения постов.\n/post_config - Настройки постов для определенного телеграм-канала.\n/create_project - Проект это комбинация админ группы и целевого телеграм-канала.\n/get_group_id - Добавьте бота в телеграм группу чтобы достать ее ID.\n/video_to_post - Вручную получить телеграм-пост из YouTube видео.\n\n**Финансовые команды:**\n/top_up - Пополнить баланс.\n/balance - Проверить баланс.\n/check_transactions - Получить таблицу с вашими предыдущими транзакциями.\n\n**Управление проектами и группами:**\n/check_projects - Получить связанные с админ группой телеграм-каналы.\n\n**Поддержка:**\n/support - Связаться с создателем.\n\nДля получения дополнительной помощи, пожалуйста, свяжитесь с нашей службой поддержки. Наслаждайтесь использованием VideoToPostBOT! 😊"

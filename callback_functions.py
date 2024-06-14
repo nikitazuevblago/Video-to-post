@@ -282,6 +282,8 @@ async def process_chosen_tg(callback:CallbackQuery, state:FSMContext, yt_api=Fal
 
     TG_channel_id = callback.data.replace('vtp_','')
 
+    # Check if the video_url already has been used in TG_channel_id
+
     # Edit the message to remove the inline keyboard
     await callback.message.edit_reply_markup(reply_markup=None)
 
@@ -350,7 +352,7 @@ async def process_cost_approvement(callback:CallbackQuery):
             except ValueError as e:
                 raise ValueError(e)
             except:
-                response_text = '[ERROR]: video url did not pass VideoToPost \n"{video_url}"'
+                response_text = "[ERROR]: video url did not pass VideoToPost \n{video_url}"
                 user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
                 if user_lang!='en':
                     response_text = translate(response_text, user_lang)
