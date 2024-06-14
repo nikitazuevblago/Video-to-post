@@ -170,7 +170,7 @@ async def check_new_videos(tg_channel_id, admin_group_id, yt_channel_urls, track
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=60, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=9000, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
