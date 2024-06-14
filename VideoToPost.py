@@ -8,7 +8,7 @@ try:
     from secret_key import TEST_MODE, EXCHANGERATE_API
 except:
     TEST_MODE = int(getenv('TEST_MODE'))
-    EXCHANGERATE_API = int(getenv('EXCHANGERATE_API'))
+    EXCHANGERATE_API = getenv('EXCHANGERATE_API')
 
 if TEST_MODE==1:
     try:    
