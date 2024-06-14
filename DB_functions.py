@@ -17,7 +17,6 @@ except:
     TESTER_ID = int(getenv('TESTER_ID'))
     TEST_MODE = int(getenv('TEST_MODE'))
 
-# bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 from bot_settings import bot,dp
 
 
@@ -43,7 +42,7 @@ def get_projects_details(table_name='PROJECTS'): # project details - tg_channel,
             raise ValueError(f'[INFO] Table "{table_name}" does not exist...')
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while get_projects_details()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while get_projects_details()')
     finally:
         cur.close()
         conn.close()
@@ -68,7 +67,7 @@ def get_tracked_channels(tg_channel_id, table_name='TRACKED_YT_CHANNELS'):
             
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while get_tracked_yt_creators()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while get_tracked_yt_creators()')
     finally:
         cur.close()
         conn.close()
@@ -84,7 +83,7 @@ def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
             conn.commit()
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while remove_yt_creators()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while remove_yt_creators()')
     finally:
         cur.close()
         conn.close()
@@ -106,7 +105,7 @@ def get_used_video_urls(TG_channel_id, table_name='USED_VIDEO_URLS') -> set:
             raise ValueError(f'[INFO] Table "{table_name}" does not exist...')
             
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while get_used_video_urls()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while get_used_video_urls()')
     finally:
         cur.close()
         conn.close()
@@ -130,7 +129,7 @@ def insert_new_video_urls(new_video_urls, TG_channel_id, table_name='USED_VIDEO_
                 raise ValueError(f'[INFO] Table "{table_name}" does not exist...')
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while insert_new_video_urls()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while insert_new_video_urls()')
     finally:
         cur.close()
         conn.close()
@@ -150,7 +149,7 @@ def clear_up_db():
                 conn.rollback()
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while clear_up_db()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while clear_up_db()')
     
     finally:
         cur.close()
@@ -215,7 +214,7 @@ def create_db():
 
 
     except psycopg2.errors.OperationalError:
-        raise('ERROR: cannot connect to PostgreSQL while create_db()')
+        raise ValueError('ERROR: cannot connect to PostgreSQL while create_db()')
     
     finally:
         cur.close()
