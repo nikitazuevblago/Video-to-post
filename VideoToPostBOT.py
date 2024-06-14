@@ -31,9 +31,17 @@ except:
     TESTER_ID = int(getenv('TESTER_ID'))
 
 if TEST_MODE==1:
-    from secret_key import UKassa_TEST
+    try:
+        from secret_key import UKassa_TEST
+    except:
+        UKassa_TEST = getenv('UKassa_TEST')
+    payment_provider_TOKEN = UKassa_TEST
 else:
-    from secret_key import UKassa
+    try:
+        from secret_key import UKassa
+    except:
+        UKassa = getenv('UKassa')
+    payment_provider_TOKEN = UKassa
 
 
 @dp.message(CommandStart())
@@ -486,7 +494,7 @@ async def top_up_balance(message: Message):
         title=response_text,
         description='1 token = 1 rub',
         payload=str(message.chat.id),
-        provider_token='381764678:TEST:87529',
+        provider_token=payment_provider_TOKEN,
         currency='rub',
         prices=[
             LabeledPrice(
