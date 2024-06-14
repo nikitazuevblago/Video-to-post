@@ -307,14 +307,14 @@ async def process_chosen_tg(callback:CallbackQuery, state:FSMContext, yt_api=Fal
         [InlineKeyboardButton(text=approve_button_text, callback_data=f'cost_approve_{current_timestamp_str}')],
         [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'cost_disapprove_{current_timestamp_str}')]])
     
-    response_text = "[INFO] Converting this video '{video_url}' into a Telegram post will cost {post_cost} tokens. Do you agree?"
+    response_text = "[INFO] Converting this video into a Telegram post will cost {post_cost} tokens. Do you agree?"
     user_lang = get_user_lang(await get_chat_owner_id(admin_group_id))
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
     response_text = response_text.format(video_url=yt_link, post_cost=post_cost)
 
     new_pending_work(current_timestamp_str,yt_link,post_cost,admin_group_id,TG_channel_id)
-    await bot.send_message(admin_group_id, response_text, reply_markup=keyboard)
+    await callback.message.reply(response_text, reply_markup=keyboard)
 
 
 async def process_cost_approvement(callback:CallbackQuery):
@@ -387,4 +387,18 @@ async def process_cost_approvement(callback:CallbackQuery):
             await asyncio.sleep(13) # EdenAI request limit ("start" - billing plan)
     finally:
         delete_pending_work(timestamp_str)
-        
+
+
+async def process_cancel(callback:CallbackQuery):
+    # Acknowledge the callback query to stop the "loading" state
+    await callback.answer(cache_time=12)
+
+    # Edit the message to remove the inline keyboard
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+    response_text = "The action is canceled!"
+    user_lang = get_user_lang(callback.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+
+    await callback.message.reply(response_text)

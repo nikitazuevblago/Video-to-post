@@ -64,8 +64,8 @@ msgstr "У вас {balance} токенов"
 msgid "Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: '/top_up 100'"
 msgstr "Введите количество токенов после /top_up, без букв и пробелов!\nПример: '/top_up 100'"
 
-msgid "You added {amount} tokens to the balance! Current balance is {balance}"
-msgstr "Вы добавили {amount} токенов на баланс! Текущий баланс составляет {balance}"
+msgid "You added {amount} tokens to the balance! Current balance is {balance} tokens"
+msgstr "Вы добавили {amount} токенов на баланс! Текущий баланс составляет {balance} токенов"
 
 msgid "This admin group is linked to these projects {project_names}"
 msgstr "Эта админ-группа связана с этими проектами {project_names}"
@@ -127,8 +127,14 @@ msgstr "ОШИБКА: url видео не прошел VideoToPost '{yt_link}'. 
 msgid "Hello! I am a bot created for converting YouTube videos to Telegram posts!"
 msgstr "Привет! Я бот, созданный для конвертации видео с YouTube в посты в Telegram!"
 
-msgid "[INFO] Converting this video '{video_url}' into a Telegram post will cost {post_cost} tokens. Do you agree?"
-msgstr "[INFO] Конвертация этого видео '{video_url}' в TG пост будет стоить {post_cost} токенов. Вы согласны?"
+msgid "[INFO] Converting this video into a Telegram post will cost {post_cost} tokens. Do you agree?"
+msgstr "[INFO] Конвертация этого видео в TG пост будет стоить {post_cost} токенов. Вы согласны?"
 
 msgid "[ERROR] - You don't have enough tokens! Your balance is {user_balance}"
 msgstr "[ERROR] - У вас недостаточно токенов! Ваш баланс составляет {user_balance}"
+
+msgid "Top up the balance"
+msgstr "Пополнение баланса"
+
+msgid "The action is canceled!"
+msgstr "Действие отменено!"

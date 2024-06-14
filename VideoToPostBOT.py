@@ -7,7 +7,8 @@ import time
 from os import getenv
 
 from aiogram.fsm.context import FSMContext
-from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
+from aiogram import F
+from aiogram.types import BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand, LabeledPrice, PreCheckoutQuery, ContentType
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -28,6 +29,11 @@ except:
     TEST_MODE = int(getenv('TEST_MODE'))
     CREATOR_ID = int(getenv('CREATOR_ID'))
     TESTER_ID = int(getenv('TESTER_ID'))
+
+if TEST_MODE==1:
+    from secret_key import UKassa_TEST
+else:
+    from secret_key import UKassa
 
 
 @dp.message(CommandStart())
@@ -156,7 +162,7 @@ async def check_new_videos(admin_group_id, yt_channel_urls, tracked_yt_channels,
 
 
 # Main logic   ## WARNING: manual_check - the user can choose whether to check the new videos of YouTube creators auto or manually
-async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=15, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
+async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_sleep=60, production_sleep=18000): # delete_bad_creators behaviour should be checked on the same yt_authors (maybe they're bad only sometimes)
     while True:
         all_projects = get_projects_details()
         if len(all_projects)>0:
@@ -181,7 +187,7 @@ async def suggest_new_posts(delete_bad_creators=True, manual_check=False, test_s
 
                             current_timestamp_str = str(time.time())
 
-                            # Create inline keyboard with approve and disapprove buttons
+                            # Create inline keyboard with Accept and Cancel buttons
                             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                                 [InlineKeyboardButton(text=approve_button_text, callback_data=f'cost_approve_{current_timestamp_str}')],
                                 [InlineKeyboardButton(text=disapprove_button_text, callback_data=f'cost_disapprove_{current_timestamp_str}')]])
@@ -434,24 +440,84 @@ async def top_up_balance(message: Message):
         message_parts = message.text.strip().split()
         assert len(message_parts)==2
         amount = int(message_parts[1])
+        assert amount>=100
     except:
-        response_text = "Enter the amount of tokens after /top_up, no letters, no spaces!\nExample: '/top_up 100'"
+        response_text = "Enter the amount of tokens after /top_up, no letters, no spaces! Minimum amount - 100 rub\nExample: '/top_up 100'"
         user_lang = get_user_lang(message.from_user.id)
         if user_lang!='en':
             response_text = translate(response_text, user_lang)
         await message.reply(response_text)
         return False
+    
+    # Real payment request
+    response_text = "Top up the balance"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
+    
+    label_text = "{amount} tokens"
+    if user_lang!='en':
+        label_text = translate(label_text, user_lang)
+    label_text = label_text.format(amount=amount)
 
+    if user_lang=='en':
+        cancel_button = 'cancel'
+        pay_button = 'top up'
+    elif user_lang=='ru':
+        cancel_button = 'отмена'
+        pay_button = 'оплатить'
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=pay_button, pay=True)],
+                [InlineKeyboardButton(text=cancel_button, callback_data=f'cancel')]]
+                )
+    
+    invoice = await bot.send_invoice(
+        chat_id=message.chat.id,
+        title=response_text,
+        description='1 token = 1 rub',
+        payload=str(message.chat.id),
+        provider_token='381764678:TEST:87529',
+        currency='rub',
+        prices=[
+            LabeledPrice(
+                label=label_text,
+                # Multiplying on 100 because the amount starts with cents (копейки)
+                amount=amount*100
+            )
+        ],
+        #start_parameter='@blago7daren',
+        reply_markup=keyboard,
+        request_timeout=15,
+    )
+    # Store message ID to edit it later
+    dp['payment_message_id'] = invoice.message_id
+
+
+async def precheckout(precheckout:PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(precheckout.id, ok=True)
+
+
+@dp.message(F.content_type == ContentType.SUCCESSFUL_PAYMENT)
+async def process_successful_payment(message:Message):
+    user_id = message.from_user.id
+    chat_id = message.successful_payment.invoice_payload
+
+    # Retrieve the stored message ID to delete inline_keyboard
+    payment_message_id = dp.get('payment_message_id')
+    await bot.edit_message_reply_markup(chat_id=chat_id, message_id=payment_message_id, reply_markup=None)
+
+    amount = message.successful_payment.total_amount // 100
     create_or_update_user(user_id, balance=amount)
     add_new_transaction(user_id, amount, action='top_up')
     balance = get_user_balance(user_id)
 
-    response_text = "You added {amount} tokens to the balance! Current balance is {balance}"
+    response_text = "You added {amount} tokens to the balance! Current balance is {balance} tokens"
     user_lang = get_user_lang(message.from_user.id)
     if user_lang!='en':
         response_text = translate(response_text, user_lang)
     response_text = response_text.format(amount=amount, balance=balance)
-    await message.reply(response_text)
+    await bot.send_message(int(chat_id), response_text)
 
 
 @dp.message(Command('check_transactions'))
@@ -578,7 +644,8 @@ async def run_bot() -> None:
     dp.callback_query.register(process_full_config, lambda c: c.data.startswith('config_img'))
     dp.callback_query.register(process_chosen_tg, lambda c: c.data.startswith('vtp'))
     dp.callback_query.register(process_cost_approvement, lambda c: c.data.startswith('cost_'))
-    
+    dp.callback_query.register(process_cancel, lambda c: c.data.startswith('cancel'))
+    dp.pre_checkout_query.register(precheckout)    
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     asyncio.create_task(suggest_new_posts())
     await dp.start_polling(bot, skip_updates=True)
