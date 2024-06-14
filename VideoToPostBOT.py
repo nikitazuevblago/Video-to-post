@@ -259,40 +259,10 @@ async def set_help_menu():
 
 @dp.message(Command('help'))
 async def help(message:Message):
-    # response_text = "**Welcome to VideoToPostBOT!** 🤖\n\n**Intro**\nThis bot is created to automatically convert videos from YouTube to Telegram posts\nFirst, you need to create the project with /create_project. By itself the project it's a combination of the admin group and target telegram channel.\nSecond, you need to add the bot to admin group and telegram channel. Make the bot admin.\n\n* Admin group - telegram group with admins where they can accept or decline posts created by AI.\n* Target telegram channel - telegram channel with all accepted posts.\n* One admin group can have many linked telegram channels!\n\n\nHere are the commands you can use:\n\n**General Commands:**\n/set_language - Choose the language.\n/help - Get instructions on how to use the bot.\n\n**Channel Management:**\n/new_channels - Track new YouTube channels to get posts automatically.\n/post_config - Post settings aimed at a certain Telegram channel.\n/create_project - Project is a combo of admin group and target Telegram channel.\n/get_group_id - Add bot to the group to get its ID.\n/video_to_post - Manually get the Telegram post from a YouTube video.\n\n**Financial Commands:**\n/top_up - Top up your balance.\n/balance - Check your balance.\n/check_transactions - Get a table with your previous transactions.\n\n**Project and Group Management:**\n/check_projects - Get linked to admin group Telegram channels.\n\n**Support:**\n/support - Contact the creator.\n\nFor any further assistance, feel free to reach out to our support team. Enjoy using VideoToPostBOT! 😊"
-    # user_lang = get_user_lang(message.from_user.id)
-    # if user_lang!='en':
-    #     response_text = translate(response_text, user_lang)
-    response_text = (
-    "**Welcome to VideoToPostBOT\\!** 🤖\n\n"
-    "**Intro**\n"
-    "This bot is created to automatically convert videos from YouTube to Telegram posts\\.\n"
-    "First, you need to create the project with /create\\_project\\. By itself, the project is a combination of the admin group and target telegram channel\\.\n"
-    "Second, you need to add the bot to the admin group and telegram channel\\. Make the bot admin\\.\n\n"
-    "* Admin group \\- telegram group with admins where they can accept or decline posts created by AI\\.\n"
-    "* Target telegram channel \\- telegram channel with all accepted posts\\.\n"
-    "* One admin group can have many linked telegram channels\\!\\n\n"
-    "Here are the commands you can use\\:\n\n"
-    "**General Commands\\:**\n"
-    "/set\\_language \\- Choose the language\\.\n"
-    "/help \\- Get instructions on how to use the bot\\.\n\n"
-    "**Channel Management\\:**\n"
-    "/new\\_channels \\- Track new YouTube channels to get posts automatically\\.\n"
-    "/post\\_config \\- Post settings aimed at a certain Telegram channel\\.\n"
-    "/create\\_project \\- Project is a combo of admin group and target Telegram channel\\.\n"
-    "/get\\_group\\_id \\- Add bot to the group to get its ID\\.\n"
-    "/video\\_to\\_post \\- Manually get the Telegram post from a YouTube video\\.\n\n"
-    "**Financial Commands\\:**\n"
-    "/top\\_up \\- Top up your balance\\.\n"
-    "/balance \\- Check your balance\\.\n"
-    "/check\\_transactions \\- Get a table with your previous transactions\\.\n\n"
-    "**Project and Group Management\\:**\n"
-    "/check\\_projects \\- Get linked to admin group Telegram channels\\.\n\n"
-    "**Support\\:**\n"
-    "/support \\- Contact the creator\\.\n\n"
-    "For any further assistance, feel free to reach out to our support team\\. Enjoy using VideoToPostBOT\\! 😊"
-)
-
+    response_text = "\n*Welcome to VideoToPostBOT\\!* 🤖\n\n*Intro*\nThis bot is created to automatically convert videos from YouTube to Telegram posts\nFirst, you need to create the project with /create\\_project\\. By itself the project it's a combination of the admin group and target telegram channel\\.\nSecond, you need to add the bot to admin group and telegram channel\\. Make the bot admin\\.\n\n• Admin group \\- telegram group with admins where they can accept or decline posts created by AI\\.\n• Target telegram channel \\- telegram channel with all accepted posts\\.\n• One admin group can have many linked telegram channels\\!\n\n\nHere are the commands you can use:\n\n*General Commands:*\n/set\\_language \\- Choose the language\\.\n/help \\- Get instructions on how to use the bot\\.\n\n*Channel Management:*\n/new\\_channels \\- Track new YouTube channels to get posts automatically\\.\n/post\\_config \\- Post settings aimed at a certain Telegram channel\\.\n/create\\_project \\- Project is a combo of admin group and target Telegram channel\\.\n/get\\_group\\_id \\- Add bot to the group to get its ID\\.\n/video\\_to\\_post \\- Manually get the Telegram post from a YouTube video\\.\n\n*Financial Commands:*\n/top\\_up \\- Top up your balance\\.\n/balance \\- Check your balance\\.\n/check\\_transactions \\- Get a table with your previous transactions\\.\n\n*Project and Group Management:*\n/check\\_projects \\- Get linked to admin group Telegram channels\\.\n\n*Support:*\n/support \\- Contact the creator\\.\n\nFor any further assistance, feel free to reach out to our support team\\. Enjoy using VideoToPostBOT\\! 😊\n"
+    user_lang = get_user_lang(message.from_user.id)
+    if user_lang!='en':
+        response_text = translate(response_text, user_lang)
 
     await message.reply(response_text, parse_mode=ParseMode.MARKDOWN_V2)
 
