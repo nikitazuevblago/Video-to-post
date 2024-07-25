@@ -3,16 +3,15 @@ import psycopg2
 import pandas as pd
 from tabulate import tabulate
 try:
-    from secret_key import HOST, DBNAME, USER, PASSWORD, PORT, CREATOR_ID, TESTER_ID, TEST_MODE
+    from secret_key import DB_CONN_URL, CREATOR_ID, TESTER_ID, TEST_MODE
+    TEST_MODE = int(TEST_MODE)
+    CREATOR_ID = int(CREATOR_ID)
+    TESTER_ID = int(TESTER_ID)
 except:
     BOT_TOKEN = getenv('BOT_TOKEN')
 
     # DB env vars
-    HOST = getenv('PGHOST')
-    DBNAME = getenv('POSTGRES_DB')
-    USER = getenv('PGUSER')
-    PASSWORD = getenv('POSTGRES_PASSWORD')
-    PORT = int(getenv('PGPORT'))
+    DB_CONN_URL = getenv('DB_CONN_URL')
     CREATOR_ID = int(getenv('CREATOR_ID'))
     TESTER_ID = int(getenv('TESTER_ID'))
     TEST_MODE = int(getenv('TEST_MODE'))
@@ -21,13 +20,11 @@ except:
 from bot_settings import bot,dp
 
 
-DB_config = {'host':HOST,'dbname':DBNAME,'user':USER,'password':PASSWORD,'port':PORT}
-
 # FNs interacting with DB PostgreSQL
 def get_projects_details(table_name='PROJECTS'): # project details - tg_channel, adming_group
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         try:
             cur.execute(f"""SELECT TG_channel_id, admin_group_id FROM {table_name};""")
@@ -52,7 +49,7 @@ def get_projects_details(table_name='PROJECTS'): # project details - tg_channel,
 def get_tracked_channels(tg_channel_id, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         try:
             cur.execute(f"""SELECT YT_channel_id FROM {table_name}
@@ -77,10 +74,10 @@ def get_tracked_channels(tg_channel_id, table_name='TRACKED_YT_CHANNELS'):
 def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         for channel in bad_channels:
-            cur.execute(f"""DELETE FROM {table_name} WHERE channel = '{channel}';""")
+            cur.execute(f"""DELETE FROM {table_name} WHERE YT_CHANNEL_ID = '{channel}';""")
             conn.commit()
 
     except psycopg2.errors.OperationalError:
@@ -93,7 +90,7 @@ def remove_yt_creators(bad_channels, table_name='TRACKED_YT_CHANNELS'):
 def get_used_video_urls(TG_channel_id, table_name='USED_VIDEO_URLS') -> set:
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         try:
             cur.execute(f"""SELECT video_url FROM {table_name} WHERE TG_channel_id = {TG_channel_id};""")
@@ -115,7 +112,7 @@ def get_used_video_urls(TG_channel_id, table_name='USED_VIDEO_URLS') -> set:
 def insert_new_video_urls(new_video_urls, TG_channel_id, table_name='USED_VIDEO_URLS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         for video_url in new_video_urls:
             try:
@@ -139,7 +136,7 @@ def insert_new_video_urls(new_video_urls, TG_channel_id, table_name='USED_VIDEO_
 def clear_up_db():
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         tables_to_drop = ['USED_VIDEO_URLS','TRACKED_YT_CHANNELS','TRANSACTIONS','USERS','POST_CONFIG','PROJECTS','PENDING_WORK']
         for table in tables_to_drop:
@@ -160,7 +157,7 @@ def clear_up_db():
 def create_db():
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""CREATE TABLE IF NOT EXISTS PROJECTS (
@@ -225,7 +222,7 @@ def create_db():
 def insert_new_project(TG_channel_name, admin_group_id, tg_channel_id, table_name='PROJECTS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         try:
             cur.execute(f"""INSERT INTO {table_name} (TG_channel_name, admin_group_id, TG_channel_id) VALUES ('{TG_channel_name}',{admin_group_id},{tg_channel_id});""")
@@ -262,7 +259,7 @@ def load_dummy_data():
     # PROJECTS table
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         try:
             cur.execute(f"""INSERT INTO PROJECTS (TG_channel_name, admin_group_id, TG_channel_id) VALUES ('Become a Millionaire',-1002237753557,-1002169269607);""")
@@ -297,7 +294,7 @@ def load_dummy_data():
 def get_admin_group_ids():
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         # Check if the command /new_channels executes in admin_group
@@ -316,7 +313,7 @@ def get_admin_group_ids():
 def get_related_tg_channels(admin_group_id, table_name='PROJECTS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         cur.execute(f"""SELECT TG_CHANNEL_ID FROM {table_name} WHERE admin_group_id={admin_group_id}""")
         related_tg_channels_ids_postgres = cur.fetchall()
@@ -336,7 +333,7 @@ def get_related_tg_channels(admin_group_id, table_name='PROJECTS'):
 def link_new_YT_channels(TG_channel_id, new_YT_channels, table_name='TRACKED_YT_CHANNELS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         for new_YT_channel in new_YT_channels:
             cur.execute(f"""INSERT INTO {table_name} (YT_channel_id, TG_channel_id) VALUES ('{new_YT_channel}',{TG_channel_id})""")
@@ -364,7 +361,7 @@ def create_or_update_user(user_id, lang=None, balance=None, default=False, table
     
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         # Check if the user exists
@@ -397,7 +394,7 @@ def create_or_update_user(user_id, lang=None, balance=None, default=False, table
 def get_user_balance(user_id, table_name='USERS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         # Check if the user exists
@@ -417,7 +414,7 @@ def get_user_balance(user_id, table_name='USERS'):
 def add_new_transaction(user_id, sum, action, table_name='TRANSACTIONS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         # SQL query to get the current timestamp in Moscow timezone
@@ -442,7 +439,7 @@ def add_new_transaction(user_id, sum, action, table_name='TRANSACTIONS'):
 def get_user_transactions(user_id, table_name='TRANSACTIONS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         # CURRENT_TIMESTAMP will be current dependent on server's time!!! Railway default is OREGON, USA
@@ -474,7 +471,7 @@ def create_or_update_config(TG_channel_id, lang=None, reference=None, img=None, 
 
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
         
         # Check if the user exists
@@ -509,7 +506,7 @@ def create_or_update_config(TG_channel_id, lang=None, reference=None, img=None, 
 def get_projects(admin_group_id, table_name='PROJECTS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""SELECT tg_channel_name FROM {table_name} WHERE admin_group_id = {admin_group_id};""")
@@ -532,7 +529,7 @@ def get_projects(admin_group_id, table_name='PROJECTS'):
 def get_post_config(TG_channel_id, table_name='POST_CONFIG'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""SELECT lang, reference_creator, img FROM {table_name} WHERE TG_channel_id = {TG_channel_id};""")
@@ -552,7 +549,7 @@ def get_post_config(TG_channel_id, table_name='POST_CONFIG'):
 def get_user_lang(user_id, table_name='USERS'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""SELECT lang FROM {table_name} WHERE user_id = {user_id};""")
@@ -582,7 +579,7 @@ def get_user_lang(user_id, table_name='USERS'):
 def new_pending_work(timestamp_str, video_url, post_cost, admin_group_id, tg_channel_id, table_name='PENDING_WORK'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""INSERT INTO {table_name} (video_url, post_cost, admin_group_id, tg_channel_id, timestamp_str) 
@@ -602,7 +599,7 @@ def new_pending_work(timestamp_str, video_url, post_cost, admin_group_id, tg_cha
 def get_pendind_work_details(timestamp_str, table_name='PENDING_WORK'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""SELECT * FROM {table_name} WHERE timestamp_str = '{timestamp_str}';""")
@@ -622,7 +619,7 @@ def get_pendind_work_details(timestamp_str, table_name='PENDING_WORK'):
 def delete_pending_work(timestamp_str, table_name='PENDING_WORK'):
     try:
         # Establish db connection
-        conn = psycopg2.connect(**DB_config)
+        conn = psycopg2.connect(DB_CONN_URL)
         cur = conn.cursor()
 
         cur.execute(f"""DELETE FROM {table_name} WHERE timestamp_str = '{timestamp_str}';;""")
