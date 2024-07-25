@@ -24,6 +24,9 @@ from translations import translate
 
 try:
     from secret_key import YT_API_KEY, TEST_MODE, CREATOR_ID, TESTER_ID
+    TEST_MODE = int(TEST_MODE)
+    CREATOR_ID = int(CREATOR_ID)
+    TESTER_ID = int(TESTER_ID)
 except:
     YT_API_KEY = getenv('YT_API_KEY')
     TEST_MODE = int(getenv('TEST_MODE'))
