@@ -6,6 +6,7 @@ import aiotube
 from os import getenv
 try:    
     from secret_key import TEST_MODE, EXCHANGERATE_API
+    TEST_MODE = int(TEST_MODE)
 except:
     TEST_MODE = int(getenv('TEST_MODE'))
     EXCHANGERATE_API = int(getenv('EXCHANGERATE_API'))
@@ -200,17 +201,28 @@ def get_post_txt(yt, creator_name=False, post_lang='en'): # Get subtitles or gen
             raise ValueError("Video doesn't have subtitles, need to create")
         
         xml_captions = captions.xml_captions
+        # print(f'xml_captions {xml_captions}')
+
+        # # Parse the XML
+        # root = etree.fromstring(xml_captions.encode('utf-8'))
+        # text_blocks = []
+        # for child in root.findall('.//body/p'):
+        #     text_block = ''.join(child.itertext()).strip().replace('\n', ' ')
+        #     cleaned_text_block = text_block.replace('[Music]','').strip()
+        #     if cleaned_text_block!='':
+        #         text_blocks.append(cleaned_text_block)
 
         # Parse the XML
         root = etree.fromstring(xml_captions.encode('utf-8'))
         text_blocks = []
-        for child in root.findall('.//body/p'):
+        for child in root.findall('.//text'):  # Corrected XPath
             text_block = ''.join(child.itertext()).strip().replace('\n', ' ')
-            cleaned_text_block = text_block.replace('[Music]','').strip()
-            if cleaned_text_block!='':
+            cleaned_text_block = text_block.replace('[Music]', '').strip()
+            if cleaned_text_block != '':
                 text_blocks.append(cleaned_text_block)
             
         transcription = ', '.join(text_blocks) 
+        print(f'transcription: {transcription}')
     except:
         audio_bytes = get_audio_bytes(yt)
         named_buffered_reader = get_buffered_reader(audio_bytes)
@@ -361,4 +373,5 @@ def get_post_cost(link):
 # link = 'https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'
 # link = 'https://youtu.be/eH_TOrddnZ0?si=pwpELPdAcO5XOzG5'
 
-# VideoToPost(link, reference=True, post_lang='ru')
+# name, post = VideoToPost('https://www.youtube.com/watch?v=RJDCvuW7C9A', reference=True, post_lang='ru')
+# print(post)
