@@ -9,7 +9,7 @@ try:
     TEST_MODE = int(TEST_MODE)
 except:
     TEST_MODE = int(getenv('TEST_MODE'))
-    EXCHANGERATE_API = getenv('EXCHANGERATE_API')
+    EXCHANGERATE_API = int(getenv('EXCHANGERATE_API'))
 
 if TEST_MODE==1:
     try:    
@@ -222,7 +222,7 @@ def get_post_txt(yt, creator_name=False, post_lang='en'): # Get subtitles or gen
                 text_blocks.append(cleaned_text_block)
             
         transcription = ', '.join(text_blocks) 
-        print(f'transcription: {transcription}')
+        #print(f'transcription: {transcription}')
     except:
         audio_bytes = get_audio_bytes(yt)
         named_buffered_reader = get_buffered_reader(audio_bytes)
