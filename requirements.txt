@@ -1,0 +1,16 @@
+pandas==2.2.2
+openpyxl==3.1.2
+pytube==15.0.0
+ffmpeg==1.4
+lxml==5.2.2
+aiogram==3.6.0
+requests==2.32.2
+pillow==10.3.0
+psycopg2==2.9.9
+aiotube==1.7.2
+tabulate==0.9.0
+yt_dlp
+youtube_transcript_api
+
+# ONLY FOR COMPILING FILES MANUALLY! NO NEED ON SERVER!
+babel==2.15.0
